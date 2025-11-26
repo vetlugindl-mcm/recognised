@@ -1,0 +1,5 @@
+{
+  "name": "Умная загрузка Gemini",
+  "description": "Красивый загрузчик файлов (JPG, PDF, DOC) с поддержкой drag-and-drop и анализом с помощью Google Gemini.",
+  "requestFramePermissions": []
+}
