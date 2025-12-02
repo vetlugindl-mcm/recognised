@@ -1,14 +1,25 @@
-
 import React from 'react';
-import { MagnifyingGlassIcon, BellIcon } from './icons';
+import { MagnifyingGlassIcon, BellIcon, Bars3Icon } from './icons';
 import { McmLogo } from './McmLogo';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+    onMenuClick?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 flex items-center justify-between px-6 z-50 transition-all duration-300 supports-[backdrop-filter]:bg-white/70">
+    <header className="h-16 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 flex items-center justify-between px-4 md:px-6 z-50 transition-all duration-300 supports-[backdrop-filter]:bg-white/70">
       
-      {/* Left: Brand */}
-      <div className="flex items-center gap-8">
+      {/* Left: Brand & Mobile Menu */}
+      <div className="flex items-center gap-4 md:gap-8">
+        {/* Mobile Menu Trigger */}
+        <button 
+            onClick={onMenuClick}
+            className="md:hidden p-2 -ml-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+            <Bars3Icon className="w-6 h-6" />
+        </button>
+
         <div className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity duration-200 scale-90 origin-left">
             <McmLogo />
         </div>

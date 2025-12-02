@@ -200,7 +200,12 @@ export const DocumentScanner: React.FC = () => {
              <div className="glass-panel rounded-2xl p-1 shadow-xl shadow-gray-200/50 border-gray-100">
                  <div className="bg-white/70 rounded-xl p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                        <Dropzone onFilesAdded={handleFilesAdded} disabled={isAnalyzing} />
+                        <Dropzone 
+                            onFilesAdded={handleFilesAdded} 
+                            disabled={isAnalyzing} 
+                            title="Загрузить документы"
+                            subtitle="JPG, PDF, DOC до 10 МБ"
+                        />
                         
                         {files.length > 0 && (
                              <div className="w-full">

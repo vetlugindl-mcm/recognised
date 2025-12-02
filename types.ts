@@ -1,4 +1,5 @@
 
+
 export interface UploadedFile {
   file: File;
   id: string;
@@ -6,6 +7,7 @@ export interface UploadedFile {
 }
 
 export type AnalysisState = 'idle' | 'analyzing' | 'complete' | 'error';
+export type ViewState = 'scanner' | 'nostroy' | 'templates';
 
 export interface DiplomaData {
   type: 'diploma';
@@ -49,4 +51,13 @@ export interface AnalysisItem {
   fileName: string;
   data: AnalyzedDocument | null;
   error?: string;
+}
+
+export interface DocumentTemplate {
+  id: string;
+  file: File;
+  name: string;
+  uploadDate: Date;
+  variables: string[];
+  size: number;
 }

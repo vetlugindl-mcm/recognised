@@ -5,9 +5,18 @@ import { CloudArrowUpIcon } from './icons';
 interface DropzoneProps {
   onFilesAdded: (files: File[]) => void;
   disabled?: boolean;
+  title?: string;
+  subtitle?: string;
+  accept?: string;
 }
 
-export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) => {
+export const Dropzone: React.FC<DropzoneProps> = ({ 
+  onFilesAdded, 
+  disabled,
+  title = 'Загрузить документы',
+  subtitle = 'JPG, PDF, DOC до 10 МБ',
+  accept = 'image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,7 +95,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) =>
         ref={fileInputRef}
         onChange={handleFileInputChange}
         className="hidden"
-        accept="image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept={accept}
         disabled={disabled}
       />
       
@@ -100,10 +109,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) =>
         
         <div>
             <h3 className={`text-sm font-bold transition-colors duration-300 ${isDragging ? 'text-gray-900' : 'text-gray-800'}`}>
-            {isDragging ? 'Отпустите файлы' : 'Загрузить документы'}
+            {isDragging ? 'Отпустите файлы' : title}
             </h3>
             <p className="text-[11px] text-gray-400 mt-0.5">
-            JPG, PDF, DOC до 10 МБ
+            {subtitle}
             </p>
         </div>
       </div>

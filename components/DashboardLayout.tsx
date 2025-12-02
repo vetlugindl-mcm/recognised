@@ -1,17 +1,31 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ViewState } from '../types';
 
-export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  activeView: ViewState;
+  onNavigate: (view: ViewState) => void;
+}
+
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeView, onNavigate }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex flex-col h-screen bg-[#fafafa] overflow-hidden font-sans text-gray-900 selection:bg-black selection:text-white">
       {/* Top Header */}
-      <Header />
+      <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar */}
-        <Sidebar className="hidden md:flex" />
+        <Sidebar 
+            className="md:flex" 
+            activeView={activeView} 
+            onNavigate={onNavigate} 
+            isOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
+        />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto scroll-smooth relative">
