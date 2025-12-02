@@ -88,6 +88,14 @@ export const DocumentScanner: React.FC = () => {
     setResults(prev => prev.filter(r => r.fileId !== id));
   }, []);
 
+  const handleDataUpdate = useCallback((fileId: string, newData: AnalyzedDocument) => {
+    setResults(prevResults => 
+      prevResults.map(item => 
+        item.fileId === fileId ? { ...item, data: newData } : item
+      )
+    );
+  }, []);
+
   const handleAnalyze = async () => {
     const unprocessedFiles = files.filter(f => !results.some(r => r.fileId === f.id));
 
@@ -274,7 +282,7 @@ export const DocumentScanner: React.FC = () => {
 
                     {/* Render Results when complete */}
                     {!isAnalyzing && results.map((item) => (
-                        <AnalysisResult key={item.fileId} item={item} />
+                        <AnalysisResult key={item.fileId} item={item} onUpdate={handleDataUpdate} />
                     ))}
                 </div>
             </section>

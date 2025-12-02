@@ -1,10 +1,10 @@
-
-import React from 'react';
-import { AnalysisItem, DiplomaData, PassportData } from '../types';
-import { IdentificationIcon, AcademicCapIcon, DocumentIcon, ClipboardIcon } from './icons';
+import React, { useState, useEffect } from 'react';
+import { AnalysisItem, DiplomaData, PassportData, AnalyzedDocument } from '../types';
+import { IdentificationIcon, AcademicCapIcon, DocumentIcon, ClipboardIcon, PencilIcon } from './icons';
 
 interface AnalysisResultProps {
   item: AnalysisItem;
+  onUpdate?: (fileId: string, newData: AnalyzedDocument) => void;
 }
 
 // --- SKELETON COMPONENT ---
@@ -54,90 +54,176 @@ const FieldGroup = ({ title, children, className }: { title: string, children?: 
   </div>
 );
 
-const Field = ({ label, value, fullWidth = false }: { label: string, value: string | null, fullWidth?: boolean }) => {
+interface FieldProps {
+  label: string;
+  value: string | null;
+  fullWidth?: boolean;
+  onSave?: (newValue: string) => void;
+}
+
+const Field = ({ label, value, fullWidth = false, onSave }: FieldProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value || '');
+
+  // Update temp value if prop changes externally
+  useEffect(() => {
+    setTempValue(value || '');
+  }, [value]);
+
   const displayValue = value && value !== 'null' ? value : '—';
   
   const handleCopy = () => {
      if (value) navigator.clipboard.writeText(value);
   };
 
+  const handleStartEdit = () => {
+    setTempValue(value || '');
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(tempValue);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setTempValue(value || '');
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
   return (
     <div className={`
         flex flex-col group relative rounded-lg transition-colors duration-200
-        cursor-default
         ${fullWidth ? 'sm:col-span-2' : ''}
     `}>
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 mb-1.5 h-4">
           <span className="text-xs font-medium text-gray-500 font-sans tracking-wide">{label}</span>
-          <button 
-            onClick={handleCopy} 
-            className="opacity-0 group-hover:opacity-100 transition-all text-gray-400 hover:text-black transform hover:scale-110 active:scale-95"
-            title="Копировать"
-            aria-label="Copy to clipboard"
-          >
-            <ClipboardIcon className="w-3 h-3" />
-          </button>
+          
+          {!isEditing && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+               <button 
+                onClick={handleStartEdit}
+                className="text-gray-400 hover:text-black transform hover:scale-110 active:scale-95 transition-all p-0.5"
+                title="Редактировать"
+              >
+                <PencilIcon className="w-3 h-3" />
+              </button>
+              <button 
+                onClick={handleCopy} 
+                className="text-gray-400 hover:text-black transform hover:scale-110 active:scale-95 transition-all p-0.5"
+                title="Копировать"
+              >
+                <ClipboardIcon className="w-3 h-3" />
+              </button>
+            </div>
+          )}
       </div>
-      <span className="text-base leading-relaxed font-normal text-gray-900 break-words tracking-normal">
-        {displayValue}
-      </span>
+
+      {isEditing ? (
+        <input 
+          autoFocus
+          type="text"
+          value={tempValue}
+          onChange={(e) => setTempValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className="text-base leading-relaxed font-normal text-gray-900 bg-transparent border-b border-black outline-none w-full p-0 pb-0.5 placeholder-gray-300"
+        />
+      ) : (
+        <span className="text-base leading-relaxed font-normal text-gray-900 break-words tracking-normal min-h-[1.5rem]">
+          {displayValue}
+        </span>
+      )}
     </div>
   );
 };
 
-const PassportResult = ({ data }: { data: PassportData }) => (
-  <>
-    <FieldGroup title="01. Личные данные">
-      <Field label="Фамилия" value={data.lastName} />
-      <Field label="Имя" value={data.firstName} />
-      <Field label="Отчество" value={data.middleName} fullWidth />
-      <Field label="Дата рождения" value={data.birthDate} />
-      <Field label="Место рождения" value={data.birthPlace} />
-      <Field label="СНИЛС" value={data.snils} />
-    </FieldGroup>
+interface DataProps<T> {
+  data: T;
+  onUpdate?: (updatedData: T) => void;
+}
 
-    <FieldGroup title="02. Паспорт">
-      <Field label="Серия / Номер" value={data.seriesNumber} />
-      <Field label="Код подразделения" value={data.departmentCode} />
-      <Field label="Кем выдан" value={data.issuedBy} fullWidth />
-      <Field label="Дата выдачи" value={data.dateIssued} />
-    </FieldGroup>
+const PassportResult = ({ data, onUpdate }: DataProps<PassportData>) => {
+  
+  const updateField = (key: keyof PassportData, val: string) => {
+    if (onUpdate) {
+      onUpdate({ ...data, [key]: val });
+    }
+  };
 
-    <FieldGroup title="03. Прописка">
-      <Field label="Адрес регистрации" value={data.registration} fullWidth />
-    </FieldGroup>
-  </>
-);
+  return (
+    <>
+      <FieldGroup title="01. Личные данные">
+        <Field label="Фамилия" value={data.lastName} onSave={(v) => updateField('lastName', v)} />
+        <Field label="Имя" value={data.firstName} onSave={(v) => updateField('firstName', v)} />
+        <Field label="Отчество" value={data.middleName} fullWidth onSave={(v) => updateField('middleName', v)} />
+        <Field label="Дата рождения" value={data.birthDate} onSave={(v) => updateField('birthDate', v)} />
+        <Field label="Место рождения" value={data.birthPlace} onSave={(v) => updateField('birthPlace', v)} />
+        <Field label="СНИЛС" value={data.snils} onSave={(v) => updateField('snils', v)} />
+      </FieldGroup>
 
-const DiplomaResult = ({ data }: { data: DiplomaData }) => (
-  <>
-    <FieldGroup title="01. Выпускник">
-      <Field label="Фамилия" value={data.lastName} />
-      <Field label="Имя" value={data.firstName} />
-      <Field label="Отчество" value={data.middleName} fullWidth />
-    </FieldGroup>
+      <FieldGroup title="02. Паспорт">
+        <Field label="Серия / Номер" value={data.seriesNumber} onSave={(v) => updateField('seriesNumber', v)} />
+        <Field label="Код подразделения" value={data.departmentCode} onSave={(v) => updateField('departmentCode', v)} />
+        <Field label="Кем выдан" value={data.issuedBy} fullWidth onSave={(v) => updateField('issuedBy', v)} />
+        <Field label="Дата выдачи" value={data.dateIssued} onSave={(v) => updateField('dateIssued', v)} />
+      </FieldGroup>
 
-    <FieldGroup title="02. Образование">
-      <Field label="Учебное заведение" value={data.institution} fullWidth />
-      <Field label="Город" value={data.city} />
-      <Field label="Дата окончания" value={data.dateIssued} />
-    </FieldGroup>
+      <FieldGroup title="03. Прописка">
+        <Field label="Адрес регистрации" value={data.registration} fullWidth onSave={(v) => updateField('registration', v)} />
+      </FieldGroup>
+    </>
+  );
+};
 
-    <FieldGroup title="03. Квалификация">
-      <Field label="Специальность" value={data.specialty} fullWidth />
-      <Field label="Квалификация" value={data.qualification} fullWidth />
-    </FieldGroup>
+const DiplomaResult = ({ data, onUpdate }: DataProps<DiplomaData>) => {
 
-    <FieldGroup title="04. Реквизиты">
-      {data.series && <Field label="Серия" value={data.series} />}
-      <Field label="Номер" value={data.number} />
-      <Field label="Регистрационный номер" value={data.regNumber} fullWidth />
-    </FieldGroup>
-  </>
-);
+  const updateField = (key: keyof DiplomaData, val: string) => {
+    if (onUpdate) {
+      onUpdate({ ...data, [key]: val });
+    }
+  };
 
-export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item }) => {
-  const { data, error, fileName } = item;
+  return (
+    <>
+      <FieldGroup title="01. Выпускник">
+        <Field label="Фамилия" value={data.lastName} onSave={(v) => updateField('lastName', v)} />
+        <Field label="Имя" value={data.firstName} onSave={(v) => updateField('firstName', v)} />
+        <Field label="Отчество" value={data.middleName} fullWidth onSave={(v) => updateField('middleName', v)} />
+      </FieldGroup>
+
+      <FieldGroup title="02. Образование">
+        <Field label="Учебное заведение" value={data.institution} fullWidth onSave={(v) => updateField('institution', v)} />
+        <Field label="Город" value={data.city} onSave={(v) => updateField('city', v)} />
+        <Field label="Дата окончания" value={data.dateIssued} onSave={(v) => updateField('dateIssued', v)} />
+      </FieldGroup>
+
+      <FieldGroup title="03. Квалификация">
+        <Field label="Специальность" value={data.specialty} fullWidth onSave={(v) => updateField('specialty', v)} />
+        <Field label="Квалификация" value={data.qualification} fullWidth onSave={(v) => updateField('qualification', v)} />
+      </FieldGroup>
+
+      <FieldGroup title="04. Реквизиты">
+        {data.series && <Field label="Серия" value={data.series} onSave={(v) => updateField('series', v)} />}
+        <Field label="Номер" value={data.number} onSave={(v) => updateField('number', v)} />
+        <Field label="Регистрационный номер" value={data.regNumber} fullWidth onSave={(v) => updateField('regNumber', v)} />
+      </FieldGroup>
+    </>
+  );
+};
+
+export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }) => {
+  const { data, error, fileName, fileId } = item;
   const isPassport = data?.type === 'passport';
 
   if (error) {
@@ -175,6 +261,12 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item }) => {
 
   const isDarkHeader = isPassport;
 
+  const handleDataUpdate = (newData: AnalyzedDocument) => {
+    if (onUpdate) {
+      onUpdate(fileId, newData);
+    }
+  }
+
   return (
     <div className={`
         glass-panel rounded-2xl overflow-hidden flex flex-col h-full hover:shadow-2xl hover:shadow-gray-200/40 transition-all duration-500 group
@@ -205,7 +297,10 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item }) => {
 
         {/* Card Body */}
         <div className="p-6 sm:p-8 flex-1 bg-white/60">
-            {isPassport ? <PassportResult data={data as PassportData} /> : <DiplomaResult data={data as DiplomaData} />}
+            {isPassport ? 
+              <PassportResult data={data as PassportData} onUpdate={handleDataUpdate} /> : 
+              <DiplomaResult data={data as DiplomaData} onUpdate={handleDataUpdate} />
+            }
         </div>
         
         {/* Card Footer */}

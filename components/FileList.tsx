@@ -45,6 +45,7 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
           const style = getFileStyle(fileObj.file);
           const IconComponent = style.Icon;
           const isProcessed = processedIds.includes(fileObj.id);
+          const showSpinner = isAnalyzing && !isProcessed;
 
           return (
             <div
@@ -93,10 +94,13 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
               </div>
 
               {/* Status Icons */}
-               <div className="ml-auto flex items-center justify-center w-8 group-hover:opacity-0 transition-opacity duration-200">
+               <div className={`
+                   ml-auto flex items-center justify-center w-8 transition-opacity duration-200
+                   ${!disabled ? 'group-hover:opacity-0' : ''}
+               `}>
                     {isProcessed ? (
                         <CheckIcon className="w-5 h-5 text-green-500" />
-                    ) : isAnalyzing ? (
+                    ) : showSpinner ? (
                         <LoaderIcon className="w-5 h-5 text-gray-400 animate-spin" />
                     ) : (
                         <ClockIcon className="w-5 h-5 text-gray-300" />
@@ -104,18 +108,19 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
                </div>
 
               {/* Action - Reveal on hover */}
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                <button
-                  onClick={() => onRemove(fileObj.id)}
-                  disabled={disabled}
-                  className="
-                    p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 
-                    transition-colors
-                  "
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
+              {!disabled && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                    <button
+                    onClick={() => onRemove(fileObj.id)}
+                    className="
+                        p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 
+                        transition-colors
+                    "
+                    >
+                    <XMarkIcon className="w-5 h-5" />
+                    </button>
+                </div>
+              )}
             </div>
           );
         })}
