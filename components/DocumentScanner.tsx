@@ -4,7 +4,7 @@ import { FileList } from './FileList';
 import { AnalysisResult, AnalysisSkeleton } from './AnalysisResult';
 import { analyzeFile } from '../services/gemini';
 import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
-import { SparklesIcon } from './Icons';
+import { SparklesIcon, CheckCircleIcon } from './icons';
 
 // Helper to generate PDF thumbnail using pdf.js
 const generatePdfThumbnail = async (file: File): Promise<string | null> => {
@@ -191,19 +191,18 @@ export const DocumentScanner: React.FC = () => {
              
              <div className="glass-panel rounded-2xl p-1 shadow-xl shadow-gray-200/50 border-gray-100">
                  <div className="bg-white/70 rounded-xl p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         <Dropzone onFilesAdded={handleFilesAdded} disabled={isAnalyzing} />
                         
                         {files.length > 0 && (
-                             <div className="flex flex-col h-36">
-                                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                                    <FileList 
-                                        files={files} 
-                                        onRemove={handleRemoveFile} 
-                                        disabled={isAnalyzing}
-                                        processedIds={results.map(r => r.fileId)}
-                                    />
-                                </div>
+                             <div className="w-full">
+                                <FileList 
+                                    files={files} 
+                                    onRemove={handleRemoveFile} 
+                                    disabled={isAnalyzing}
+                                    processedIds={results.map(r => r.fileId)}
+                                    isAnalyzing={isAnalyzing}
+                                />
                              </div>
                         )}
                     </div>
@@ -236,7 +235,10 @@ export const DocumentScanner: React.FC = () => {
                                             <span>Обработка данных...</span>
                                         </>
                                     ) : unprocessedCount === 0 && results.length > 0 ? (
-                                        <span>Готово</span>
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                                            <span>Готово</span>
+                                        </div>
                                     ) : (
                                         <>
                                             <SparklesIcon className="w-4 h-4 text-white/90" />

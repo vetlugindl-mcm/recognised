@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import { CloudArrowUpIcon } from './Icons';
+import { CloudArrowUpIcon } from './icons';
 
 interface DropzoneProps {
   onFilesAdded: (files: File[]) => void;

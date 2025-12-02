@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MagnifyingGlassIcon, BellIcon } from './Icons';
+import { MagnifyingGlassIcon, BellIcon } from './icons';
 import { McmLogo } from './McmLogo';
 
 export const Header: React.FC = () => {
@@ -15,29 +15,29 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Right: User Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         
         {/* Search */}
-        <button className="p-2 text-gray-400 hover:text-gray-900 hover:bg-black/5 rounded-full transition-all duration-200 group">
-          <MagnifyingGlassIcon className="w-4 h-4 group-hover:scale-105 transition-transform" />
+        <button className="p-2.5 text-gray-400 hover:text-gray-900 hover:bg-black/5 rounded-full transition-all duration-200 group">
+          <MagnifyingGlassIcon className="w-5 h-5 group-hover:scale-105 transition-transform" />
         </button>
 
         {/* Notifications */}
         <div className="relative">
-            <button className="p-2 text-gray-400 hover:text-gray-900 hover:bg-black/5 rounded-full transition-all duration-200">
-                <BellIcon className="w-4 h-4" />
+            <button className="p-2.5 text-gray-400 hover:text-gray-900 hover:bg-black/5 rounded-full transition-all duration-200">
+                <BellIcon className="w-5 h-5" />
             </button>
-            <span className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-black rounded-full border border-white"></span>
+            <span className="absolute top-2.5 right-3 w-2 h-2 bg-black rounded-full border-2 border-white"></span>
         </div>
 
         {/* User Profile */}
-        <button className="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 ml-1">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-b from-gray-800 to-black text-white flex items-center justify-center text-[10px] font-bold shadow-md shadow-black/10">
+        <button className="flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 ml-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-b from-gray-800 to-black text-white flex items-center justify-center text-xs font-bold shadow-md shadow-black/10">
                 MK
             </div>
             <div className="hidden lg:flex flex-col items-start">
-                <span className="text-[11px] font-bold text-gray-900 leading-none mb-0.5">Михаил К.</span>
-                <span className="text-[9px] text-gray-500 leading-none">Администратор</span>
+                <span className="text-sm font-bold text-gray-900 leading-none mb-0.5">Михаил К.</span>
+                <span className="text-xs text-gray-500 leading-none">Администратор</span>
             </div>
         </button>
 

@@ -2,7 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar */
+:root {
+  /* Design Tokens */
+  --font-sans: 'Inter', sans-serif;
+  
+  /* Colors */
+  --bg-app: #fafafa;
+  --bg-surface: #ffffff;
+  --color-primary: #111827;
+  --color-secondary: #6b7280;
+  --color-accent: #000000;
+  
+  /* Spacing/Radius */
+  --radius-card: 1rem; /* 16px */
+  --radius-btn: 0.75rem; /* 12px */
+}
+
+/* Custom Scrollbar - Minimalist */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -13,51 +29,54 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #e5e7eb; /* gray-200 */
+  background-color: rgba(0, 0, 0, 0.1);
   border-radius: 9999px;
+  transition: background-color 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #9ca3af; /* gray-400 */
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
-/* Selection Color */
+/* Global Typography & Reset */
+body {
+  background-color: var(--bg-app);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.015em; /* Premium tight tracking */
+}
+
 ::selection {
-  background-color: #000000;
+  background-color: var(--color-accent);
   color: #ffffff;
 }
 
-body {
-  background-color: #fafafa;
-  color: #111827;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.01em; /* Modern "tight" text feel */
-}
+/* --- UTILITY CLASSES --- */
 
-/* PREMIUM UTILITIES */
-
-/* Noise Texture */
+/* Noise Texture - Adds 'tactility' to the clean UI */
 .bg-noise {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
-/* Glass Panel Effect - Refined for Readability */
+/* Glass Panel - The core building block */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 
-    0 10px 40px -10px rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    0 4px 6px -1px rgba(0, 0, 0, 0.02), 
+    0 2px 4px -1px rgba(0, 0, 0, 0.02),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-/* Smooth Entry Animation */
+/* Animations */
 .animate-enter {
-  animation: enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: enter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(8px);
 }
 
 @keyframes enter {
@@ -67,31 +86,31 @@ body {
   }
 }
 
-/* SKELETON LOADING (SHIMMER) */
 .skeleton {
   background: #f3f4f6;
-  background-image: linear-gradient(
-    to right,
-    #f3f4f6 0%,
-    #e5e7eb 20%,
-    #f3f4f6 40%,
-    #f3f4f6 100%
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
   );
-  background-repeat: no-repeat;
-  background-size: 1000px 100%;
-  animation: shimmer 2s infinite linear forwards;
+  animation: shimmer 1.5s infinite;
+  transform: translateX(-100%);
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
   100% {
-    background-position: 1000px 0;
+    transform: translateX(100%);
   }
-}
-
-/* Utility for better text wrap */
-.text-balance {
-  text-wrap: balance;
 }
