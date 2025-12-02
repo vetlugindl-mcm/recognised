@@ -1,18 +1,53 @@
-
 import React from 'react';
 import { AnalysisItem, DiplomaData, PassportData } from '../types';
-import { SparklesIcon, CheckCircleIcon, DocumentIcon } from './Icons';
+import { IdentificationIcon, AcademicCapIcon, DocumentIcon, ClipboardIcon } from './Icons';
 
 interface AnalysisResultProps {
   item: AnalysisItem;
 }
 
-const FieldGroup = ({ title, children }: { title: string, children: React.ReactNode }) => (
-  <div className="mb-6 last:mb-0">
-    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-1">
+// --- SKELETON COMPONENT ---
+export const AnalysisSkeleton = () => {
+  return (
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-full min-h-[400px]">
+      {/* Header Skeleton */}
+      <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white/50">
+         <div className="flex flex-col gap-2">
+            <div className="h-5 w-32 skeleton rounded-md"></div>
+            <div className="h-3 w-24 skeleton rounded-md"></div>
+         </div>
+         <div className="w-10 h-10 skeleton rounded-xl"></div>
+      </div>
+      
+      {/* Body Skeleton */}
+      <div className="p-6 space-y-8 flex-1">
+        {[1, 2, 3].map((i) => (
+           <div key={i} className="space-y-4">
+              <div className="h-3 w-20 skeleton rounded mb-4"></div>
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <div className="h-2 w-12 skeleton rounded"></div>
+                    <div className="h-4 w-full skeleton rounded"></div>
+                 </div>
+                 <div className="space-y-2">
+                    <div className="h-2 w-16 skeleton rounded"></div>
+                    <div className="h-4 w-3/4 skeleton rounded"></div>
+                 </div>
+              </div>
+           </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const FieldGroup = ({ title, children, className }: { title: string, children?: React.ReactNode, className?: string }) => (
+  <div className={`mb-6 last:mb-0 ${className}`}>
+    <h4 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-3 select-none">
       {title}
+      <div className="h-px bg-gray-100 flex-1"></div>
     </h4>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
       {children}
     </div>
   </div>
@@ -20,85 +55,78 @@ const FieldGroup = ({ title, children }: { title: string, children: React.ReactN
 
 const Field = ({ label, value, fullWidth = false }: { label: string, value: string | null, fullWidth?: boolean }) => {
   const displayValue = value && value !== 'null' ? value : '—';
+  
+  const handleCopy = () => {
+     if (value) navigator.clipboard.writeText(value);
+  };
+
   return (
-    <div className={`flex flex-col ${fullWidth ? 'md:col-span-2' : ''}`}>
-      <span className="text-[10px] sm:text-xs text-indigo-400 font-medium mb-1">{label}</span>
-      <span className="text-sm sm:text-base font-semibold text-gray-800 break-words leading-tight">
+    <div className={`
+        flex flex-col group relative p-2 -ml-2 rounded-lg transition-colors duration-200
+        hover:bg-gray-50/80 cursor-default
+        ${fullWidth ? 'sm:col-span-2' : ''}
+    `}>
+      <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] font-medium text-gray-400 font-mono uppercase tracking-wide">{label}</span>
+          <button 
+            onClick={handleCopy} 
+            className="opacity-0 group-hover:opacity-100 transition-all text-gray-400 hover:text-black transform hover:scale-105 active:scale-95"
+            title="Копировать"
+          >
+            <ClipboardIcon className="w-3 h-3" />
+          </button>
+      </div>
+      <span className="text-[15px] leading-snug font-semibold text-gray-900 break-words tracking-tight">
         {displayValue}
       </span>
     </div>
   );
 };
 
-// Render Passport Data
 const PassportResult = ({ data }: { data: PassportData }) => (
   <>
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-2">
-        <div className="p-2 bg-emerald-100 rounded-lg">
-           <CheckCircleIcon className="w-5 h-5 text-emerald-600" />
-        </div>
-        <h3 className="font-bold text-gray-800 text-lg">Паспорт РФ</h3>
-      </div>
-      <div className="text-xs font-medium px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
-        AI Passport
-      </div>
-    </div>
-
-    <FieldGroup title="Личные данные">
+    <FieldGroup title="01. Личные данные">
       <Field label="Фамилия" value={data.lastName} />
       <Field label="Имя" value={data.firstName} />
       <Field label="Отчество" value={data.middleName} fullWidth />
       <Field label="Дата рождения" value={data.birthDate} />
       <Field label="Место рождения" value={data.birthPlace} />
+      <Field label="СНИЛС" value={data.snils} />
     </FieldGroup>
 
-    <FieldGroup title="Данные документа">
-      <Field label="Серия и Номер" value={data.seriesNumber} />
-      <Field label="Дата выдачи" value={data.dateIssued} />
+    <FieldGroup title="02. Паспорт">
+      <Field label="Серия / Номер" value={data.seriesNumber} />
       <Field label="Код подразделения" value={data.departmentCode} />
       <Field label="Кем выдан" value={data.issuedBy} fullWidth />
+      <Field label="Дата выдачи" value={data.dateIssued} />
     </FieldGroup>
 
-    <FieldGroup title="Регистрация">
-      <Field label="Прописка" value={data.registration} fullWidth />
+    <FieldGroup title="03. Прописка">
+      <Field label="Адрес регистрации" value={data.registration} fullWidth />
     </FieldGroup>
   </>
 );
 
-// Render Diploma Data
 const DiplomaResult = ({ data }: { data: DiplomaData }) => (
   <>
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-2">
-        <div className="p-2 bg-indigo-100 rounded-lg">
-           <CheckCircleIcon className="w-5 h-5 text-indigo-600" />
-        </div>
-        <h3 className="font-bold text-gray-800 text-lg">Диплом</h3>
-      </div>
-      <div className="text-xs font-medium px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
-        AI Diploma
-      </div>
-    </div>
-
-    <FieldGroup title="Выпускник">
+    <FieldGroup title="01. Выпускник">
       <Field label="Фамилия" value={data.lastName} />
       <Field label="Имя" value={data.firstName} />
       <Field label="Отчество" value={data.middleName} fullWidth />
     </FieldGroup>
 
-    <FieldGroup title="Учебное заведение">
-      <Field label="Наименование" value={data.institution} fullWidth />
+    <FieldGroup title="02. Образование">
+      <Field label="Учебное заведение" value={data.institution} fullWidth />
       <Field label="Город" value={data.city} />
-      <Field label="Дата выдачи" value={data.dateIssued} />
+      <Field label="Дата окончания" value={data.dateIssued} />
     </FieldGroup>
 
-    <FieldGroup title="Квалификация">
+    <FieldGroup title="03. Квалификация">
       <Field label="Специальность" value={data.specialty} fullWidth />
-      <Field label="Квалификация (Степень)" value={data.qualification} fullWidth />
+      <Field label="Квалификация" value={data.qualification} fullWidth />
     </FieldGroup>
 
-    <FieldGroup title="Реквизиты документа">
+    <FieldGroup title="04. Реквизиты">
       {data.series && <Field label="Серия" value={data.series} />}
       <Field label="Номер" value={data.number} />
       <Field label="Регистрационный номер" value={data.regNumber} fullWidth />
@@ -108,73 +136,86 @@ const DiplomaResult = ({ data }: { data: DiplomaData }) => (
 
 export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item }) => {
   const { data, error, fileName } = item;
+  const isPassport = data?.type === 'passport';
 
   if (error) {
     return (
-      <div className="animate-in fade-in zoom-in-95 duration-500 bg-red-50 rounded-2xl p-6 border border-red-100 shadow-sm">
-         <div className="flex items-center gap-3 mb-2">
-            <DocumentIcon className="w-5 h-5 text-red-400" />
-            <span className="text-sm font-semibold text-red-700">{fileName}</span>
+      <div className="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[250px] border border-red-100 bg-red-50/10">
+         <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-4 border border-gray-100">
+             <DocumentIcon className="w-5 h-5 text-gray-400" />
          </div>
-         <p className="text-sm text-red-600 ml-8">{error}</p>
+         <h3 className="font-bold text-gray-900 mb-1 text-sm">{fileName}</h3>
+         <p className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{error}</p>
       </div>
     );
   }
 
   if (!data) return null;
 
-  // If JSON parsing failed entirely or unknown type, we have raw text
   if (data.type === 'raw') {
       return (
-        <div className="animate-in fade-in zoom-in-95 duration-500 bg-orange-50 rounded-2xl p-6 border border-orange-100 shadow-sm">
-             <div className="flex items-center gap-2 mb-3 pb-3 border-b border-orange-200/50">
-                <DocumentIcon className="w-5 h-5 text-orange-400" />
-                <span className="text-sm font-semibold text-gray-700">{fileName}</span>
+        <div className="glass-panel rounded-2xl overflow-hidden h-full flex flex-col">
+             <div className="px-5 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center gap-3">
+                <div className="p-1.5 bg-white rounded-md shadow-sm border border-gray-100">
+                    <DocumentIcon className="w-3.5 h-3.5 text-gray-500" />
+                </div>
+                <h3 className="font-semibold text-xs text-gray-900">{fileName}</h3>
+                <span className="ml-auto text-[9px] font-bold text-gray-400 uppercase tracking-wider border border-gray-200 px-1.5 py-px rounded">Raw Data</span>
              </div>
-            <h3 className="font-semibold text-orange-900 mb-2 flex items-center gap-2">
-                <span className="text-xl">⚠️</span> Частичное распознавание
-            </h3>
-            <p className="text-sm text-orange-800 mb-4">
-                Не удалось автоматически определить тип документа. Вот что удалось прочитать:
-            </p>
-            <div className="bg-white p-4 rounded-xl border border-orange-100 font-mono text-xs text-gray-600 overflow-x-auto whitespace-pre-wrap max-h-60 scrollbar-thin">
-                {data.rawText}
-            </div>
+             <div className="p-5 flex-1 bg-white">
+                <div className="bg-gray-50 p-4 rounded-lg text-[11px] text-gray-600 font-mono whitespace-pre-wrap border border-gray-200 leading-relaxed h-full overflow-auto max-h-[400px]">
+                    {data.rawText}
+                </div>
+             </div>
         </div>
       )
   }
 
+  const isDarkHeader = isPassport;
+
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-700 slide-in-from-bottom-4">
-      <div className="relative bg-white rounded-2xl shadow-xl shadow-indigo-100/50 border border-indigo-50 overflow-hidden">
-        
-        {/* File Indicator Header */}
-        <div className="bg-gray-50/80 px-6 py-2 border-b border-gray-100 flex items-center gap-2">
-             <DocumentIcon className="w-4 h-4 text-gray-400" />
-             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Файл: {fileName}</span>
+    <div className={`
+        glass-panel rounded-2xl overflow-hidden flex flex-col h-full hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-500 group
+    `}>
+        {/* Card Header */}
+        <div className={`
+            px-6 py-5 border-b flex items-center justify-between relative overflow-hidden
+            ${isDarkHeader ? 'bg-[#0a0a0a] text-white border-black' : 'bg-white text-gray-900 border-gray-100'}
+        `}>
+            {/* Subtle highlight for dark header */}
+            {isDarkHeader && <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-[0.03] blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none"></div>}
+
+            <div className="flex flex-col gap-1.5 relative z-10">
+                <h3 className="font-bold text-lg tracking-tight leading-none">
+                    {isPassport ? 'Паспорт РФ' : 'Диплом'}
+                </h3>
+                <p className={`text-[10px] font-mono opacity-60 uppercase tracking-widest ${isDarkHeader ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {fileName}
+                </p>
+            </div>
+            <div className={`
+                p-2.5 rounded-xl backdrop-blur-xl border relative z-10 shadow-sm transition-transform duration-500 group-hover:scale-110
+                ${isDarkHeader ? 'bg-white/10 border-white/10 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}
+            `}>
+                {isPassport ? <IdentificationIcon className="w-5 h-5" /> : <AcademicCapIcon className="w-5 h-5" />}
+            </div>
         </div>
 
-        {/* Decorative Top Bar */}
-        <div className={`h-1.5 bg-gradient-to-r ${data.type === 'passport' ? 'from-emerald-400 via-teal-500 to-cyan-500' : 'from-indigo-500 via-purple-500 to-pink-500'}`}></div>
-
-        <div className="p-6 md:p-8">
-          {data.type === 'passport' ? (
-            <PassportResult data={data} />
-          ) : data.type === 'diploma' ? (
-            <DiplomaResult data={data} />
-          ) : (
-             <div className="text-center text-gray-500 py-10">Неизвестный тип данных</div>
-          )}
+        {/* Card Body */}
+        <div className="p-6 flex-1 bg-white/60">
+            {isPassport ? <PassportResult data={data as PassportData} /> : <DiplomaResult data={data as DiplomaData} />}
         </div>
         
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
-           <span>Проверьте корректность данных</span>
-           <span className="flex items-center gap-1">
-             <SparklesIcon className="w-3 h-3 text-yellow-500" /> Gemini 2.5 Flash
-           </span>
+        {/* Card Footer */}
+        <div className="bg-white/80 backdrop-blur-md px-6 py-3 border-t border-gray-100/80 flex justify-between items-center">
+            <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">
+                MCM Verified
+            </span>
+            <div className="flex gap-1.5 opacity-20">
+                <div className="w-1 h-1 rounded-full bg-black"></div>
+                <div className="w-1 h-1 rounded-full bg-black"></div>
+            </div>
         </div>
-      </div>
     </div>
   );
 };

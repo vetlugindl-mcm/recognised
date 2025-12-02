@@ -32,7 +32,8 @@ export const analyzeFile = async (file: File): Promise<string> => {
         departmentCode: "770-001",
         birthDate: "01.01.1990",
         birthPlace: "гор. Москва",
-        registration: "г. Москва, ул. Арбат, д. 1, кв. 1"
+        registration: "г. Москва, ул. Арбат, д. 1, кв. 1",
+        snils: "123-456-789 00"
       });
     }
 
@@ -44,7 +45,7 @@ export const analyzeFile = async (file: File): Promise<string> => {
       Проанализируй изображение документа. Твоя задача - точно извлечь все видимые поля.
       
       ШАГ 1: Определи тип документа.
-      - Если это Паспорт РФ (разворот с фото или пропиской), тип документа: "passport".
+      - Если это Паспорт РФ (разворот с фото или пропиской) или СНИЛС, тип документа: "passport".
       - Если это Диплом об образовании (титул или приложение), тип документа: "diploma".
       
       ШАГ 2: Извлеки данные и верни результат СТРОГО В ФОРМАТЕ JSON. Не добавляй никаких пояснений, только JSON.
@@ -61,7 +62,8 @@ export const analyzeFile = async (file: File): Promise<string> => {
         "departmentCode": "Код подразделения (XXX-XXX)",
         "birthDate": "Дата рождения (ДД.ММ.ГГГГ)",
         "birthPlace": "Место рождения",
-        "registration": "Адрес регистрации (если есть на фото, иначе пустая строка)"
+        "registration": "Адрес регистрации (если есть на фото, иначе пустая строка)",
+        "snils": "СНИЛС (если найден на изображении, формат XXX-XXX-XXX XX, иначе null)"
       }
 
       ВАРИАНТ 2: Если это ДИПЛОМ ("type": "diploma"), используй структуру:
@@ -105,11 +107,35 @@ export const analyzeFile = async (file: File): Promise<string> => {
     });
 
     return response.text || "{}";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error instanceof Error && error.message.includes('type')) {
-        throw new Error("Тип файла не поддерживается. Пожалуйста, используйте JPG или PDF.");
+    
+    let errorMessage = "Не удалось обработать документ. Попробуйте еще раз.";
+    const msg = (error.message || error.toString()).toLowerCase();
+
+    // Обработка конкретных кодов ошибок и сообщений
+    if (msg.includes('400') || msg.includes('invalid argument')) {
+      errorMessage = "Некорректный запрос. Проверьте формат файла (JPG/PDF).";
+    } else if (msg.includes('401') || msg.includes('api key')) {
+      errorMessage = "Ошибка авторизации. Проверьте API ключ.";
+    } else if (msg.includes('403') || msg.includes('permission denied')) {
+      errorMessage = "Доступ запрещен. Проверьте права API ключа или лимиты проекта.";
+    } else if (msg.includes('404')) {
+      errorMessage = "Модель или ресурс не найдены.";
+    } else if (msg.includes('429') || msg.includes('quota') || msg.includes('too many requests')) {
+      errorMessage = "Превышен лимит запросов. Пожалуйста, подождите немного.";
+    } else if (msg.includes('500') || msg.includes('internal')) {
+      errorMessage = "Внутренняя ошибка сервиса Gemini. Попробуйте позже.";
+    } else if (msg.includes('503') || msg.includes('overloaded')) {
+      errorMessage = "Сервис перегружен. Повторите попытку через минуту.";
+    } else if (msg.includes('safety') || msg.includes('blocked')) {
+      errorMessage = "Запрос заблокирован настройками безопасности. Документ может содержать недопустимый контент.";
+    } else if (msg.includes('type') || msg.includes('mime')) {
+      errorMessage = "Тип файла не поддерживается. Пожалуйста, используйте JPG или PDF.";
+    } else if (msg.includes('network') || msg.includes('fetch')) {
+      errorMessage = "Ошибка сети. Проверьте подключение к интернету.";
     }
-    throw error;
+
+    throw new Error(errorMessage);
   }
 };

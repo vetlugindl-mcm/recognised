@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useCallback } from 'react';
-import { CloudArrowUpIcon, PhotoIcon } from './Icons';
+import { CloudArrowUpIcon } from './Icons';
 
 interface DropzoneProps {
   onFilesAdded: (files: File[]) => void;
@@ -52,7 +53,6 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) =>
       const selectedFiles = Array.from(e.target.files);
       onFilesAdded(selectedFiles);
     }
-    // Reset input so the same file can be selected again if needed
     if (fileInputRef.current) {
         fileInputRef.current.value = '';
     }
@@ -72,11 +72,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) =>
       onDrop={handleDrop}
       onClick={onZoneClick}
       className={`
-        relative w-full h-64 rounded-3xl border-[3px] border-dashed transition-all duration-300 ease-out flex flex-col items-center justify-center cursor-pointer overflow-hidden
+        relative w-full h-36 rounded-xl border border-dashed transition-all duration-300 ease-out flex flex-col items-center justify-center cursor-pointer overflow-hidden
         ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : ''}
         ${isDragging 
-            ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02] shadow-xl shadow-indigo-100' 
-            : 'border-gray-200 bg-gray-50/30 hover:bg-gray-50 hover:border-indigo-300'
+            ? 'border-gray-900 bg-gray-50 scale-[1.01]' 
+            : 'border-gray-300 bg-white/50 hover:border-gray-400 hover:bg-gray-50'
         }
       `}
     >
@@ -90,25 +90,22 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesAdded, disabled }) =>
         disabled={disabled}
       />
       
-      {/* Background Animated Gradient Blob for aesthetic */}
-      <div className={`absolute inset-0 bg-gradient-to-tr from-indigo-100/40 to-purple-100/40 transition-opacity duration-500 pointer-events-none ${isDragging ? 'opacity-100' : 'opacity-0'}`} />
-
-      <div className="relative z-10 flex flex-col items-center text-center p-6">
+      <div className="relative z-10 flex flex-row items-center gap-4 text-left p-6">
         <div className={`
-            p-4 rounded-full mb-4 transition-all duration-300
-            ${isDragging ? 'bg-indigo-100 text-indigo-600 scale-110' : 'bg-white shadow-sm text-gray-400'}
+            p-2.5 rounded-full transition-all duration-300
+            ${isDragging ? 'bg-gray-900 text-white' : 'bg-white shadow-sm border border-gray-100 text-gray-500'}
         `}>
-          <CloudArrowUpIcon className="w-10 h-10" />
+          <CloudArrowUpIcon className="w-5 h-5" />
         </div>
         
-        <h3 className={`text-lg font-semibold mb-2 transition-colors duration-300 ${isDragging ? 'text-indigo-700' : 'text-gray-700'}`}>
-          {isDragging ? 'Отпустите файлы' : 'Нажмите или перетащите файлы'}
-        </h3>
-        
-        <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-          Поддержка <b>JPG, PDF, DOC</b>. <br />
-          <span className="text-xs opacity-75">Макс. размер файла 10 МБ</span>
-        </p>
+        <div>
+            <h3 className={`text-sm font-bold transition-colors duration-300 ${isDragging ? 'text-gray-900' : 'text-gray-800'}`}>
+            {isDragging ? 'Отпустите файлы' : 'Загрузить документы'}
+            </h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+            JPG, PDF, DOC до 10 МБ
+            </p>
+        </div>
       </div>
     </div>
   );

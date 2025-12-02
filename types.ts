@@ -34,6 +34,7 @@ export interface PassportData {
   birthDate: string;
   birthPlace: string;
   registration: string;
+  snils: string | null;
 }
 
 export interface RawData {
