@@ -14,39 +14,78 @@ const getBase64 = (file: File): Promise<string> => {
   });
 };
 
+// Mock data generator for development without API Key
+const getMockData = (filename: string) => {
+  const name = filename.toLowerCase();
+  
+  if (name.includes('diploma') || name.includes('диплом')) {
+    return JSON.stringify({
+      type: 'diploma',
+      lastName: "Иванов",
+      firstName: "Иван",
+      middleName: "Иванович",
+      series: "1024",
+      number: "567890",
+      regNumber: "123-45",
+      institution: "Московский Государственный Технический Университет",
+      city: "Москва",
+      specialty: "Информационные системы и технологии",
+      qualification: "Инженер",
+      dateIssued: "25.06.2018"
+    });
+  }
+
+  if (name.includes('qual') || name.includes('свидетельство') || name.includes('цок')) {
+    return JSON.stringify({
+      type: 'qualification',
+      lastName: "Музыкин",
+      firstName: "Владислав",
+      middleName: "Артурович",
+      registrationNumber: "16.02500.09.00093713.28",
+      issueDate: "21.11.2025",
+      expirationDate: "21.11.2028",
+      assessmentCenterName: "ООО «ЦЕАТ»",
+      assessmentCenterRegNumber: "78.041 / 78.041.78.13"
+    });
+  }
+
+  // Default to Passport
+  return JSON.stringify({
+    type: 'passport',
+    lastName: "Петров",
+    firstName: "Петр",
+    middleName: "Петрович",
+    seriesNumber: "4510 123456",
+    issuedBy: "ТП УФМС РОССИИ ПО ГОРОДУ МОСКВЕ В РАЙОНЕ АРБАТ",
+    dateIssued: "14.05.2015",
+    departmentCode: "770-001",
+    birthDate: "01.01.1990",
+    birthPlace: "гор. Москва",
+    registration: "г. Москва, ул. Арбат, д. 1, кв. 1",
+    snils: "123-456-789 00"
+  });
+};
+
 export const analyzeFile = async (file: File): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      console.warn("No API_KEY found in environment. Returning mock data.");
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      // Mock for demo
-      return JSON.stringify({
-        type: 'passport',
-        lastName: "Петров",
-        firstName: "Петр",
-        middleName: "Петрович",
-        seriesNumber: "4510 123456",
-        issuedBy: "ТП УФМС РОССИИ ПО ГОРОДУ МОСКВЕ В РАЙОНЕ АРБАТ",
-        dateIssued: "14.05.2015",
-        departmentCode: "770-001",
-        birthDate: "01.01.1990",
-        birthPlace: "гор. Москва",
-        registration: "г. Москва, ул. Арбат, д. 1, кв. 1",
-        snils: "123-456-789 00"
-      });
+      console.warn("No API_KEY found in environment. Using smart mock data based on filename.");
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return getMockData(file.name);
     }
 
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = await getBase64(file);
 
     const prompt = `
-      Ты - эксперт по OCR и извлечению данных из официальных документов.
+      Ты - эксперт по OCR и извлечению данных из официальных документов РФ.
       Проанализируй изображение документа. Твоя задача - точно извлечь все видимые поля.
       
       ШАГ 1: Определи тип документа.
       - Если это Паспорт РФ (разворот с фото или пропиской) или СНИЛС, тип документа: "passport".
       - Если это Диплом об образовании (титул или приложение), тип документа: "diploma".
+      - Если это Свидетельство о квалификации (независимая оценка квалификации), тип документа: "qualification".
       
       ШАГ 2: Извлеки данные и верни результат СТРОГО В ФОРМАТЕ JSON. Не добавляй никаких пояснений, только JSON.
 
@@ -80,6 +119,19 @@ export const analyzeFile = async (file: File): Promise<string> => {
         "specialty": "Специальность / Направление",
         "qualification": "Квалификация",
         "dateIssued": "Дата выдачи (ДД.ММ.ГГГГ)"
+      }
+
+      ВАРИАНТ 3: Если это СВИДЕТЕЛЬСТВО О КВАЛИФИКАЦИИ ("type": "qualification"), используй структуру:
+      {
+        "type": "qualification",
+        "lastName": "Фамилия соискателя",
+        "firstName": "Имя соискателя",
+        "middleName": "Отчество соискателя",
+        "registrationNumber": "Регистрационный номер свидетельства",
+        "issueDate": "Дата выдачи свидетельства (ДД.ММ.ГГГГ)",
+        "expirationDate": "Действителен до (ДД.ММ.ГГГГ)",
+        "assessmentCenterName": "Наименование Центра оценки квалификации (Пункт 4.5 в бланке)",
+        "assessmentCenterRegNumber": "Регистрационный номер ЦОК (Пункт 4.6 в бланке)"
       }
 
       Если поле не найдено или неразборчиво, верни null или пустую строку.

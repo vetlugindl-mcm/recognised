@@ -11,7 +11,8 @@ import {
   InformationCircleIcon,
   XMarkIcon,
   ClipboardIcon,
-  CheckIcon
+  CheckIcon,
+  MagnifyingGlassIcon
 } from './icons';
 
 interface VariableGroup {
@@ -19,7 +20,7 @@ interface VariableGroup {
   fields: { label: string; variable: string }[];
 }
 
-// Mapping database fields from types.ts (PassportData, DiplomaData) to Template Variables
+// Mapping database fields from types.ts (PassportData, DiplomaData, QualificationData) to Template Variables
 const VARIABLES_DATA: VariableGroup[] = [
   {
     category: 'Паспорт РФ',
@@ -52,11 +53,25 @@ const VARIABLES_DATA: VariableGroup[] = [
       { label: 'Квалификация', variable: '{{diploma_qualification}}' },
       { label: 'Дата выдачи', variable: '{{diploma_date_issued}}' },
     ]
+  },
+  {
+    category: 'Свидетельство о квалификации',
+    fields: [
+      { label: 'Фамилия', variable: '{{qualification_last_name}}' },
+      { label: 'Имя', variable: '{{qualification_first_name}}' },
+      { label: 'Отчество', variable: '{{qualification_middle_name}}' },
+      { label: 'Регистрационный номер', variable: '{{qualification_reg_number}}' },
+      { label: 'Дата выдачи', variable: '{{qualification_issue_date}}' },
+      { label: 'Действителен до', variable: '{{qualification_expiration_date}}' },
+      { label: 'Наименование ЦОК', variable: '{{qualification_center_name}}' },
+      { label: 'Рег. номер ЦОК', variable: '{{qualification_center_reg_number}}' },
+    ]
   }
 ];
 
 const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   if (!isOpen) return null;
 
@@ -66,60 +81,88 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     setTimeout(() => setCopiedVar(null), 1500);
   };
 
+  const filteredGroups = VARIABLES_DATA.map(group => ({
+    ...group,
+    fields: group.fields.filter(f => 
+      f.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      f.variable.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  })).filter(group => group.fields.length > 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={onClose} />
       
       <div className="glass-panel w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl shadow-2xl relative animate-enter z-10 bg-white">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-           <div className="flex items-center gap-3">
-             <div className="p-2 bg-gray-50 rounded-lg border border-gray-100">
-               <TagIcon className="w-5 h-5 text-gray-900" />
-             </div>
-             <div>
-               <h3 className="text-lg font-bold text-gray-900">Справочник переменных</h3>
-               <p className="text-xs text-gray-500">Нажмите на переменную, чтобы скопировать</p>
-             </div>
+        <div className="flex flex-col px-6 py-5 border-b border-gray-100 bg-white rounded-t-2xl z-20">
+           <div className="flex items-center justify-between mb-4">
+               <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    <TagIcon className="w-5 h-5 text-gray-900" />
+                    </div>
+                    <div>
+                    <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">Справочник переменных</h3>
+                    <p className="text-xs text-gray-500 leading-none">Нажмите на переменную, чтобы скопировать</p>
+                    </div>
+               </div>
+               <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
+                    <XMarkIcon className="w-6 h-6" />
+               </button>
            </div>
-           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
-             <XMarkIcon className="w-6 h-6" />
-           </button>
+           
+           {/* Search Bar */}
+           <div className="relative">
+                <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                    type="text" 
+                    placeholder="Поиск переменной..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-black transition-all"
+                />
+           </div>
         </div>
 
         {/* Modal Body - Scrollable */}
         <div className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
-          {VARIABLES_DATA.map((group, idx) => (
-            <div key={idx}>
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                {group.category}
-                <div className="h-px bg-gray-100 flex-1"></div>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {group.fields.map((field) => (
-                  <button
-                    key={field.variable}
-                    onClick={() => handleCopy(field.variable)}
-                    className="group flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all text-left"
-                  >
-                    <span className="text-xs font-medium text-gray-500">{field.label}</span>
-                    <div className="flex items-center gap-2">
-                      <code className="text-[11px] font-mono font-bold text-gray-900 bg-gray-200/50 px-1.5 py-0.5 rounded">
-                        {field.variable}
-                      </code>
-                      <div className="w-4 h-4 flex items-center justify-center text-gray-400">
-                        {copiedVar === field.variable ? (
-                          <CheckIcon className="w-3.5 h-3.5 text-green-500" />
-                        ) : (
-                          <ClipboardIcon className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+          {filteredGroups.length > 0 ? (
+              filteredGroups.map((group, idx) => (
+                <div key={idx}>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    {group.category}
+                    <div className="h-px bg-gray-100 flex-1"></div>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {group.fields.map((field) => (
+                    <button
+                        key={field.variable}
+                        onClick={() => handleCopy(field.variable)}
+                        className="group flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all text-left"
+                    >
+                        <span className="text-xs font-medium text-gray-500">{field.label}</span>
+                        <div className="flex items-center gap-2">
+                        <code className="text-[11px] font-mono font-bold text-gray-900 bg-gray-200/50 px-1.5 py-0.5 rounded">
+                            {field.variable}
+                        </code>
+                        <div className="w-4 h-4 flex items-center justify-center text-gray-400">
+                            {copiedVar === field.variable ? (
+                            <CheckIcon className="w-3.5 h-3.5 text-green-500" />
+                            ) : (
+                            <ClipboardIcon className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
+                        </div>
+                        </div>
+                    </button>
+                    ))}
+                </div>
+                </div>
+            ))
+          ) : (
+              <div className="text-center py-10 text-gray-400 text-sm">
+                  Переменные не найдены
               </div>
-            </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

@@ -6,10 +6,17 @@ import { analyzeFile } from '../services/gemini';
 import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
 import { SparklesIcon, CheckCircleIcon } from './icons';
 
+// Extend Window interface for PDF.js
+declare global {
+  interface Window {
+    pdfjsLib: any;
+  }
+}
+
 // Helper to generate PDF thumbnail using pdf.js
 const generatePdfThumbnail = async (file: File): Promise<string | null> => {
   try {
-    const pdfjsLib = (window as any).pdfjsLib;
+    const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) {
       console.warn("PDF.js library not found");
       return null;
@@ -117,19 +124,18 @@ export const DocumentScanner: React.FC = () => {
           let parsedData: AnalyzedDocument;
           
           try {
-            // Robust JSON extraction
-            const firstBrace = resultJsonString.indexOf('{');
-            const lastBrace = resultJsonString.lastIndexOf('}');
+            // Robust JSON extraction using RegExp to find the first '{' and last '}'
+            const jsonMatch = resultJsonString.match(/\{[\s\S]*\}/);
             
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                 const cleanJson = resultJsonString.substring(firstBrace, lastBrace + 1);
+            if (jsonMatch) {
+                 const cleanJson = jsonMatch[0];
                  const json = JSON.parse(cleanJson);
                  
                  if (json.type) {
                     json.type = json.type.toLowerCase();
                  }
                  
-                 if (json.type === 'passport' || json.type === 'diploma') {
+                 if (['passport', 'diploma', 'qualification'].includes(json.type)) {
                     parsedData = json as AnalyzedDocument;
                  } else {
                      parsedData = { type: 'raw', rawText: resultJsonString };
@@ -163,12 +169,13 @@ export const DocumentScanner: React.FC = () => {
       
       setResults(prevResults => {
           const combined = [...prevResults, ...newResults];
-          // Sorting: Passport (0) -> Diploma (1) -> Others (2)
+          // Sorting: Passport (0) -> Qualification (1) -> Diploma (2) -> Others (3)
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
               if (item.data?.type === 'passport') return 0;
-              if (item.data?.type === 'diploma') return 1;
-              return 2;
+              if (item.data?.type === 'qualification') return 1;
+              if (item.data?.type === 'diploma') return 2;
+              return 3;
             };
             return getPriority(a) - getPriority(b);
           });

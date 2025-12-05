@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AnalysisItem, DiplomaData, PassportData, AnalyzedDocument } from '../types';
-import { IdentificationIcon, AcademicCapIcon, DocumentIcon, ClipboardIcon, PencilIcon } from './icons';
+import { AnalysisItem, DiplomaData, PassportData, QualificationData, AnalyzedDocument } from '../types';
+import { IdentificationIcon, AcademicCapIcon, DocumentIcon, ClipboardIcon, PencilIcon, ClipboardDocumentCheckIcon } from './icons';
 
 interface AnalysisResultProps {
   item: AnalysisItem;
@@ -222,10 +222,41 @@ const DiplomaResult = ({ data, onUpdate }: DataProps<DiplomaData>) => {
   );
 };
 
+const QualificationResult = ({ data, onUpdate }: DataProps<QualificationData>) => {
+  const updateField = (key: keyof QualificationData, val: string) => {
+    if (onUpdate) {
+      onUpdate({ ...data, [key]: val });
+    }
+  };
+
+  // Safe toUpperCase helper to prevent runtime crashes if fields are null
+  const safeUpper = (val: string | null | undefined) => val ? val.toUpperCase() : '';
+
+  return (
+    <>
+      <FieldGroup title="01. Соискатель">
+        <Field label="Фамилия" value={safeUpper(data.lastName)} onSave={(v) => updateField('lastName', v)} />
+        <Field label="Имя" value={safeUpper(data.firstName)} onSave={(v) => updateField('firstName', v)} />
+        <Field label="Отчество" value={safeUpper(data.middleName)} fullWidth onSave={(v) => updateField('middleName', v)} />
+      </FieldGroup>
+
+      <FieldGroup title="02. Свидетельство о квалификации">
+        <Field label="Регистрационный номер" value={data.registrationNumber} fullWidth onSave={(v) => updateField('registrationNumber', v)} />
+        <Field label="Дата выдачи" value={data.issueDate} onSave={(v) => updateField('issueDate', v)} />
+        <Field label="Действителен до" value={data.expirationDate} onSave={(v) => updateField('expirationDate', v)} />
+      </FieldGroup>
+
+      <FieldGroup title="03. Центр оценки квалификации">
+        <Field label="Наименование ЦОК (п. 4.5)" value={data.assessmentCenterName} fullWidth onSave={(v) => updateField('assessmentCenterName', v)} />
+        <Field label="Рег. номер ЦОК (п. 4.6)" value={data.assessmentCenterRegNumber} fullWidth onSave={(v) => updateField('assessmentCenterRegNumber', v)} />
+      </FieldGroup>
+    </>
+  );
+};
+
 export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }) => {
   const { data, error, fileName, fileId } = item;
-  const isPassport = data?.type === 'passport';
-
+  
   if (error) {
     return (
       <div className="glass-panel rounded-2xl p-8 flex flex-col items-center justify-center text-center h-full min-h-[250px] border border-red-100 bg-red-50/20">
@@ -259,13 +290,32 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }
       )
   }
 
-  const isDarkHeader = isPassport;
+  const isPassport = data.type === 'passport';
+  const isDiploma = data.type === 'diploma';
+  const isQualification = data.type === 'qualification';
 
   const handleDataUpdate = (newData: AnalyzedDocument) => {
     if (onUpdate) {
       onUpdate(fileId, newData);
     }
   }
+
+  let Icon = DocumentIcon;
+  let title = 'Документ';
+  
+  if (isPassport) {
+      Icon = IdentificationIcon;
+      title = 'Паспорт РФ';
+  } else if (isDiploma) {
+      Icon = AcademicCapIcon;
+      title = 'Диплом';
+  } else if (isQualification) {
+      Icon = ClipboardDocumentCheckIcon;
+      title = 'Независимая оценка';
+  }
+
+  // Make Qualification look distinct and premium (dark header) like Passport
+  const isDarkHeader = isPassport || isQualification;
 
   return (
     <div className={`
@@ -281,7 +331,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }
 
             <div className="flex flex-col gap-1 relative z-10">
                 <h3 className="font-bold text-xl tracking-tight leading-none">
-                    {isPassport ? 'Паспорт РФ' : 'Диплом'}
+                    {title}
                 </h3>
                 <p className={`text-xs font-mono opacity-60 uppercase tracking-widest ${isDarkHeader ? 'text-gray-400' : 'text-gray-500'}`}>
                     {fileName}
@@ -291,16 +341,15 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }
                 p-3 rounded-xl backdrop-blur-md border relative z-10 shadow-sm transition-transform duration-500 group-hover:scale-105
                 ${isDarkHeader ? 'bg-white/10 border-white/10 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}
             `}>
-                {isPassport ? <IdentificationIcon className="w-6 h-6" /> : <AcademicCapIcon className="w-6 h-6" />}
+                <Icon className="w-6 h-6" />
             </div>
         </div>
 
         {/* Card Body */}
         <div className="p-6 sm:p-8 flex-1 bg-white/60">
-            {isPassport ? 
-              <PassportResult data={data as PassportData} onUpdate={handleDataUpdate} /> : 
-              <DiplomaResult data={data as DiplomaData} onUpdate={handleDataUpdate} />
-            }
+            {isPassport && <PassportResult data={data as PassportData} onUpdate={handleDataUpdate} />}
+            {isDiploma && <DiplomaResult data={data as DiplomaData} onUpdate={handleDataUpdate} />}
+            {isQualification && <QualificationResult data={data as QualificationData} onUpdate={handleDataUpdate} />}
         </div>
         
         {/* Card Footer */}

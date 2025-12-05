@@ -39,12 +39,24 @@ export interface PassportData {
   snils: string | null;
 }
 
+export interface QualificationData {
+  type: 'qualification';
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  registrationNumber: string;
+  issueDate: string;
+  expirationDate: string;
+  assessmentCenterName: string; // п. 4.5
+  assessmentCenterRegNumber: string; // п. 4.6
+}
+
 export interface RawData {
   type: 'raw';
   rawText: string;
 }
 
-export type AnalyzedDocument = DiplomaData | PassportData | RawData;
+export type AnalyzedDocument = DiplomaData | PassportData | QualificationData | RawData;
 
 export interface AnalysisItem {
   fileId: string;

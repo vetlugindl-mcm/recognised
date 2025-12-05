@@ -8,7 +8,7 @@
 *   **Core:** React 19, TypeScript 5+, Vite.
 *   **Styling:** Tailwind CSS (Utility-first) + CSS Modules (for specific animations).
 *   **AI Engine:** Google Gemini API (`@google/genai`) - Model: `gemini-2.5-flash`.
-*   **PDF Processing:** `pdf.js` (Client-side rendering for thumbnails).
+*   **PDF Processing:** `pdf.js` (v3.11.174 via CDN). Client-side canvas rendering for thumbnails.
 *   **Routing:** Custom State-based Routing (Managed via `App.tsx` state).
 *   **Icons:** Heroicons (SVG) via centralized `components/icons`.
 
@@ -16,34 +16,21 @@
 
 1.  **State-Based Navigation:**
     *   We do not use `react-router-dom`.
+    *   **Routes:**
+        *   `scanner`: Default NOPRIZ document intake.
+        *   `nostroy`: NOSTROY document intake (Reuses Scanner component).
+        *   `templates`: Template management registry.
     *   Navigation is controlled by a root state `currentView` in `App.tsx`.
-    *   Views are swapped conditionally: `<TemplatesView />` vs `<DocumentScanner />`.
 
 2.  **Layout Composition:**
     *   `DashboardLayout` is the single source of truth for the application shell.
-    *   It manages the **Sidebar** (Desktop/Mobile states) and **Header**.
+    *   It manages the **Sidebar** (Desktop/Mobile Drawer) and **Header**.
     *   It provides the global background texture (noise + radial gradients).
 
 3.  **Data Flow:**
     *   **Optimistic UI:** Files appear instantly upon upload. Statuses update asynchronously.
     *   **Inline Editing:** Data displayed in `AnalysisResult` is editable. Changes update the local state immediately.
-
-### Directory Structure
-```
-src/
-├── components/
-│   ├── icons/         # Single source of truth for ALL icons
-│   ├── ui/            # Generic UI atoms (Buttons, Inputs)
-│   ├── AnalysisResult.tsx # Complex data display component
-│   ├── DashboardLayout.tsx # Main shell
-│   ├── DocumentScanner.tsx # Core feature: OCR & Analysis
-│   ├── TemplatesView.tsx   # Core feature: Template registry
-│   └── ...
-├── services/          # External integrations (gemini.ts)
-├── types.ts           # Shared TypeScript interfaces (Domain entities)
-├── styles.css         # Global styles & Design Tokens
-└── App.tsx            # Root Controller
-```
+    *   **Variable Mapping:** Template variables are strictly mapped to Database fields via `VARIABLES_DATA`.
 
 ---
 
@@ -77,7 +64,7 @@ Strict adherence to ensure visual hierarchy.
 
 ### Visual Effects
 *   **Noise Texture:** Applied globally via `.bg-noise` to add "paper-like" tactility.
-*   **Glassmorphism:** Used in `Header` and floating panels (`backdrop-blur-xl bg-white/80`).
+*   **Glassmorphism:** Used in `Header`, `Modals` and floating panels (`backdrop-blur-xl bg-white/80`).
 *   **Shadows:** Soft, diffuse shadows (`shadow-xl shadow-gray-200/50`) to create depth without harsh lines.
 
 ---
@@ -86,43 +73,54 @@ Strict adherence to ensure visual hierarchy.
 
 ### Sidebar & Navigation
 *   **Desktop:** Fixed column.
-*   **Mobile:** Off-canvas Drawer with backdrop. Triggered by `Bars3Icon` in Header.
+*   **Mobile:** Off-canvas Drawer with backdrop (`fixed inset-0 z-40`). Triggered by `Bars3Icon`.
 *   **States:** Active items are highlighted with `bg-black text-white`.
 
 ### Dropzone (Universal)
 *   **Props:** Must accept `title`, `subtitle`, `accept` (MIME types), and `onFilesAdded`.
 *   **Behavior:** Supports both drag-and-drop and click-to-select.
-*   **Visuals:** Dashed border. Expands/Contracts based on state, but generally keeps a tidy height.
+*   **Visuals:** Dashed border. Expands/Contracts based on state.
 
 ### File List
 *   **Previews:**
     *   **Images:** Native `URL.createObjectURL`.
-    *   **PDFs:** Rendered to Canvas via `pdf.js`, exported as Base64 image.
+    *   **PDFs:** Rendered to Canvas via `pdf.js` (Page 1), exported as Base64 image.
 *   **Status Lifecycle:**
     1.  `ClockIcon` (Queued)
-    2.  `LoaderIcon` (Analyzing - Animated)
+    2.  `LoaderIcon` (Analyzing - Animated Spinner)
     3.  `CheckIcon` (Complete - Green)
 
 ### Analysis Result (Cards)
-*   **Structure:** Header (Type info) -> Body (Grid of Fields) -> Footer (Status).
-*   **Interaction:** Hovering over a field reveals Edit/Copy controls.
-*   **Edit Mode:** Clicking the Pencil icon swaps `<span>` for `<input>`.
+*   **Layout:** Header -> Body (Grid) -> Footer (Status).
+*   **Dark Header Pattern:** Used for "Official" ID documents (**Passport**, **Qualification Certificate**). Adds a black background and subtle glow.
+*   **Light Header Pattern:** Used for standard documents (**Diploma**).
+*   **Interaction:** Hovering over a field reveals Pencil (Edit) and Clipboard (Copy) icons.
+*   **Edit Mode:** Swaps `<span>` for `<input type="text">` inline.
+
+### Modals
+*   **Structure:** Fixed overlay (`bg-black/20 backdrop-blur-sm`) + Centered Glass Panel.
+*   **Animation:** `animate-enter` for smooth appearance.
+*   **Content:** Must include a clear Header with Title and Close button.
 
 ---
 
 ## 4. Feature Specifications
 
 ### Document Scanner (OCR)
-*   **Route:** `scanner` (NOPRIZ) & `nostroy` (NOSTROY).
-*   **Input:** JPG, PDF.
-*   **Process:** Client -> Gemini API -> JSON Response -> UI.
-*   **Output:** Structured data (Passport vs Diploma) or Raw Text.
+*   **Supported Types:**
+    1.  **Passport:** Extract Personal Data, Issue Data, Registration.
+    2.  **Diploma:** Extract Education info, Series/Number.
+    3.  **Qualification Certificate:** Extract Reg numbers, Dates, Assessment Center info (Fields 4.5/4.6).
+*   **Process:** Client -> Gemini API -> JSON Extraction (Regex) -> UI.
+*   **Fallback:** If JSON parsing fails or type is unknown, render `RawData` view.
 
 ### Document Templates
-*   **Route:** `templates`.
-*   **Input:** `.docx` files.
-*   **Logic:** Frontend mocks parsing of `{{variable}}` patterns in filenames or content.
-*   **UI:** Grid view of cards with file metadata and detected variable tags.
+*   **File Support:** `.docx`.
+*   **Variable Guide:**
+    *   A modal providing a searchable list of available variables.
+    *   **Format:** `{{snake_case_variable}}`.
+    *   **UX:** Click-to-copy with visual feedback.
+*   **Mapping:** Variables must correspond 1:1 with `types.ts` interfaces (`PassportData`, etc.).
 
 ---
 
@@ -131,11 +129,12 @@ Strict adherence to ensure visual hierarchy.
 *   **Imports:**
     *   Icons: `import { IconName } from './icons';` (Always use the index).
     *   Types: `import { TypeName } from '../types';`
+*   **Global Objects:**
+    *   `window.pdfjsLib` must be typed via `declare global` in consuming components.
+*   **Error Handling:**
+    *   Gemini Service uses a Mock generator if `API_KEY` is missing.
+    *   Parsing logic must use `try/catch` and Regex extraction to handle "chatty" AI responses.
 *   **Naming:**
     *   Components: `PascalCase`
     *   Handlers: `handleAction` (e.g., `handleAnalyze`, `handleRemove`).
     *   Props: `onAction` (e.g., `onUpdate`, `onNavigate`).
-*   **Responsiveness:**
-    *   Mobile-First approach.
-    *   Use `hidden md:flex` patterns for layout shifts.
-    *   Ensure touch targets are at least 44px.
