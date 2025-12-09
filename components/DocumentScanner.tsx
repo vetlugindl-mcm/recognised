@@ -1,15 +1,33 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Dropzone } from './Dropzone';
 import { FileList } from './FileList';
-import { AnalysisResult, AnalysisSkeleton } from './AnalysisResult';
+import { AnalysisResult } from './AnalysisResult';
+import { AnalysisSkeleton } from './AnalysisSkeleton';
+import { UnifiedProfileForm } from './UnifiedProfileForm';
 import { analyzeFile } from '../services/gemini';
-import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
-import { SparklesIcon, CheckCircleIcon } from './icons';
+import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem, UserProfile, PassportData, DiplomaData, QualificationData } from '../types';
+import { SparklesIcon, CheckCircleIcon, DocumentIcon, BuildingOfficeIcon } from './icons';
 
-// Extend Window interface for PDF.js
+// Minimal interface for PDF.js to avoid 'any'
+interface PDFPageViewport {
+    width: number;
+    height: number;
+}
+interface PDFPageProxy {
+    getViewport: (params: { scale: number }) => PDFPageViewport;
+    render: (params: { canvasContext: CanvasRenderingContext2D; viewport: PDFPageViewport }) => { promise: Promise<void> };
+}
+interface PDFDocumentProxy {
+    getPage: (pageNumber: number) => Promise<PDFPageProxy>;
+}
+interface PDFJSStatic {
+    getDocument: (data: { data: ArrayBuffer }) => { promise: Promise<PDFDocumentProxy> };
+    GlobalWorkerOptions: { workerSrc: string };
+}
+
 declare global {
   interface Window {
-    pdfjsLib: any;
+    pdfjsLib: PDFJSStatic;
   }
 }
 
@@ -60,6 +78,102 @@ export const DocumentScanner: React.FC = () => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [results, setResults] = useState<AnalysisItem[]>([]);
+
+  // Cleanup effect to prevent memory leaks with createObjectURL
+  useEffect(() => {
+    return () => {
+      files.forEach(file => {
+        if (file.previewUrl) {
+          URL.revokeObjectURL(file.previewUrl);
+        }
+      });
+    };
+  }, [files]);
+
+  // --- AGGREGATION LOGIC ---
+  const userProfile = useMemo<UserProfile>(() => {
+    // Default Empty Profile
+    const profile: UserProfile = {
+      fullName: 'Неизвестный кандидат',
+      passport: { data: null, sourceFileId: null },
+      diploma: { data: null, sourceFileId: null },
+      qualification: { data: null, sourceFileId: null }
+    };
+
+    results.forEach(item => {
+      if (!item.data) return;
+
+      if (item.data.type === 'passport') {
+        const incomingData = item.data as PassportData;
+        
+        if (!profile.passport.data) {
+          // Initialize with copy of first found document
+          profile.passport.data = { ...incomingData };
+          profile.passport.sourceFileId = item.fileId;
+        } else {
+          // MERGE STRATEGY: Combine data from multiple passport-related docs (e.g., Passport + SNILS)
+          const currentData = profile.passport.data;
+          
+          // 1. Merge SNILS: If current is missing it, but incoming has it
+          if (!currentData.snils && incomingData.snils) {
+            currentData.snils = incomingData.snils;
+          }
+
+          // 2. Merge Registration: If current is missing it
+          if (!currentData.registration && incomingData.registration) {
+            currentData.registration = incomingData.registration;
+          }
+
+          // 3. Merge Bio/Main Data: If current looks incomplete (no series), but incoming has it
+          // This handles the case where SNILS (incomplete passport data) was processed first
+          if (!currentData.seriesNumber && incomingData.seriesNumber) {
+             currentData.seriesNumber = incomingData.seriesNumber;
+             currentData.issuedBy = incomingData.issuedBy;
+             currentData.departmentCode = incomingData.departmentCode;
+             currentData.dateIssued = incomingData.dateIssued;
+             currentData.birthDate = incomingData.birthDate;
+             currentData.birthPlace = incomingData.birthPlace;
+             
+             // Also update names if the main passport has them (it usually does)
+             if (incomingData.lastName) currentData.lastName = incomingData.lastName;
+             if (incomingData.firstName) currentData.firstName = incomingData.firstName;
+             if (incomingData.middleName) currentData.middleName = incomingData.middleName;
+
+             // Point source to the main passport file
+             profile.passport.sourceFileId = item.fileId; 
+          }
+        }
+
+        // Update Full Name from the most complete data available
+        if (profile.passport.data.lastName) {
+           profile.fullName = `${profile.passport.data.lastName} ${profile.passport.data.firstName} ${profile.passport.data.middleName || ''}`.trim();
+        }
+
+      } else if (item.data.type === 'diploma') {
+        const data = item.data as DiplomaData;
+        if (!profile.diploma.data) {
+           profile.diploma.data = data;
+           profile.diploma.sourceFileId = item.fileId;
+           // Set name if still unknown
+           if (profile.fullName === 'Неизвестный кандидат') {
+             profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
+           }
+        }
+      } else if (item.data.type === 'qualification') {
+        const data = item.data as QualificationData;
+        if (!profile.qualification.data) {
+            profile.qualification.data = data;
+            profile.qualification.sourceFileId = item.fileId;
+             // Set name if still unknown
+           if (profile.fullName === 'Неизвестный кандидат') {
+             profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
+           }
+        }
+      }
+    });
+
+    return profile;
+  }, [results]);
 
   const handleFilesAdded = useCallback((newFiles: File[]) => {
     // 1. Add files immediately with basic info
@@ -120,47 +234,23 @@ export const DocumentScanner: React.FC = () => {
     try {
       const promises = unprocessedFiles.map(async (fileObj): Promise<AnalysisItem> => {
         try {
-          const resultJsonString = await analyzeFile(fileObj.file);
-          let parsedData: AnalyzedDocument;
+          // Now returns strongly typed AnalyzedDocument
+          const analyzedData = await analyzeFile(fileObj.file);
           
-          try {
-            // Robust JSON extraction using RegExp to find the first '{' and last '}'
-            const jsonMatch = resultJsonString.match(/\{[\s\S]*\}/);
-            
-            if (jsonMatch) {
-                 const cleanJson = jsonMatch[0];
-                 const json = JSON.parse(cleanJson);
-                 
-                 if (json.type) {
-                    json.type = json.type.toLowerCase();
-                 }
-                 
-                 if (['passport', 'diploma', 'qualification'].includes(json.type)) {
-                    parsedData = json as AnalyzedDocument;
-                 } else {
-                     parsedData = { type: 'raw', rawText: resultJsonString };
-                 }
-            } else {
-                 parsedData = { type: 'raw', rawText: resultJsonString };
-            }
-          } catch (e) {
-            console.error(`JSON Parse error for ${fileObj.file.name}`, e);
-            parsedData = { type: 'raw', rawText: resultJsonString };
-          }
-
           return {
             fileId: fileObj.id,
             fileName: fileObj.file.name,
-            data: parsedData
+            data: analyzedData
           };
 
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`Error analyzing ${fileObj.file.name}:`, error);
+          const errorMessage = typeof error === 'string' ? error : (error instanceof Error ? error.message : "Не удалось обработать файл");
           return {
             fileId: fileObj.id,
             fileName: fileObj.file.name,
             data: null,
-            error: "Не удалось прочитать файл"
+            error: errorMessage
           };
         }
       });
@@ -169,7 +259,6 @@ export const DocumentScanner: React.FC = () => {
       
       setResults(prevResults => {
           const combined = [...prevResults, ...newResults];
-          // Sorting: Passport (0) -> Qualification (1) -> Diploma (2) -> Others (3)
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
               if (item.data?.type === 'passport') return 0;
@@ -197,25 +286,42 @@ export const DocumentScanner: React.FC = () => {
 
   const unprocessedCount = files.length - results.length;
   const isAnalyzing = analysisState === 'analyzing';
+  const hasResults = results.length > 0;
 
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto pb-10">
         
+        {/* SECTION 0: PAGE HEADER */}
+        <div className="flex items-center justify-between animate-enter">
+          <div className="flex items-center gap-3">
+              <div className="p-2 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <BuildingOfficeIcon className="w-6 h-6 text-gray-900" />
+              </div>
+              <div>
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Внесение в НОПРИЗ</h1>
+                  <p className="text-sm text-gray-500">Загрузите документы для формирования цифрового профиля специалиста</p>
+              </div>
+          </div>
+        </div>
+
         {/* SECTION 1: UPLOAD AREA */}
-        <section className="animate-enter">
+        <section className="animate-enter" style={{ animationDelay: '100ms' }}>
              
              <div className="glass-panel rounded-2xl p-1 shadow-xl shadow-gray-200/50 border-gray-100">
                  <div className="bg-white/70 rounded-xl p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                        <Dropzone 
-                            onFilesAdded={handleFilesAdded} 
-                            disabled={isAnalyzing} 
-                            title="Загрузить документы"
-                            subtitle="JPG, PDF, DOC до 10 МБ"
-                        />
+                    <div className={`grid grid-cols-1 ${files.length > 0 ? 'md:grid-cols-2' : ''} gap-8 items-start transition-all duration-300`}>
+                        {/* Changed from constrained width to full width */}
+                        <div className="w-full">
+                            <Dropzone 
+                                onFilesAdded={handleFilesAdded} 
+                                disabled={isAnalyzing} 
+                                title="Загрузить документы"
+                                subtitle="Нажмите для выбора или перетащите JPG, PDF, DOC"
+                            />
+                        </div>
                         
                         {files.length > 0 && (
-                             <div className="w-full">
+                             <div className="w-full animate-enter">
                                 <FileList 
                                     files={files} 
                                     onRemove={handleRemoveFile} 
@@ -273,31 +379,22 @@ export const DocumentScanner: React.FC = () => {
              </div>
         </section>
 
-        {/* SECTION 2: RESULTS or SKELETONS */}
-        {(results.length > 0 || isAnalyzing) && (
-            <section className="animate-enter" style={{ animationDelay: '100ms' }}>
-                <div className="flex items-center gap-3 mb-6 px-1 mt-2">
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] select-none">
-                        {isAnalyzing ? 'Анализ...' : 'Данные'}
-                     </span>
-                     <div className="h-px bg-gray-200 flex-1"></div>
-                </div>
-                
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-                    {/* Render Skeletons when analyzing */}
-                    {isAnalyzing && (
-                        <>
-                           <AnalysisSkeleton />
-                           <AnalysisSkeleton />
-                        </>
-                    )}
+        {/* SECTION 2: UNIFIED SUMMARY FORM */}
+        {(hasResults || isAnalyzing) && (
+           <section className="animate-enter" style={{ animationDelay: '200ms' }}>
+              <div className="flex items-center gap-3 mb-6 px-1 mt-2">
+                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] select-none">
+                      Профиль кандидата
+                   </span>
+                   <div className="h-px bg-gray-200 flex-1"></div>
+              </div>
 
-                    {/* Render Results when complete */}
-                    {!isAnalyzing && results.map((item) => (
-                        <AnalysisResult key={item.fileId} item={item} onUpdate={handleDataUpdate} />
-                    ))}
-                </div>
-            </section>
+              {isAnalyzing ? (
+                 <AnalysisSkeleton />
+              ) : (
+                 <UnifiedProfileForm profile={userProfile} onUpdate={handleDataUpdate} />
+              )}
+           </section>
         )}
     </div>
   );

@@ -73,3 +73,20 @@ export interface DocumentTemplate {
   variables: string[];
   size: number;
 }
+
+// Aggregated Profile Type for the Unified Form
+export interface UserProfile {
+  fullName: string;
+  passport: {
+    data: PassportData | null;
+    sourceFileId: string | null;
+  };
+  diploma: {
+    data: DiplomaData | null;
+    sourceFileId: string | null;
+  };
+  qualification: {
+    data: QualificationData | null;
+    sourceFileId: string | null;
+  };
+}
