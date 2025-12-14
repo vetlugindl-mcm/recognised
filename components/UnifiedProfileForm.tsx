@@ -2,6 +2,7 @@ import React from 'react';
 import { UserProfile, AnalyzedDocument } from '../types';
 import { Field, FieldGroup } from './common/FormFields';
 import { UserCircleIcon, ExclamationCircleIcon } from './icons';
+import { DOCUMENT_SCHEMAS, SupportedDocTypes } from '../configs/documentSchemas';
 
 interface UnifiedProfileFormProps {
   profile: UserProfile;
@@ -18,27 +19,32 @@ const EmptySection = ({ text }: { text: string }) => (
 );
 
 export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile, onUpdate }) => {
-  const { passport, diploma, qualification, fullName } = profile;
+  const { fullName } = profile;
 
-  // STRICT TYPE SAFETY: Use generics to ensure 'field' key belongs to the data object type.
-  const handleFieldUpdate = <T extends AnalyzedDocument>(
-    data: T | null,
+  // Generic handler for field updates
+  const handleFieldUpdate = (
+    data: any, // We trust the schema matches the data structure
     fileId: string | null,
-    field: keyof T,
+    fieldKey: string,
     value: string
   ) => {
     if (fileId && data) {
-      // We know data and field match T, so this spread is type-safe
-      onUpdate(fileId, { ...data, [field]: value });
+      onUpdate(fileId, { ...data, [fieldKey]: value });
     }
   };
+
+  // Define the render order and mapping to profile keys
+  const sectionsToRender: { profileKey: keyof UserProfile; docType: SupportedDocTypes; emptyText: string }[] = [
+    { profileKey: 'passport', docType: 'passport', emptyText: 'Паспорт не загружен' },
+    { profileKey: 'diploma', docType: 'diploma', emptyText: 'Диплом не загружен' },
+    { profileKey: 'qualification', docType: 'qualification', emptyText: 'Свидетельство НОК не загружено' },
+  ];
 
   return (
     <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl shadow-gray-200/50 ring-1 ring-gray-100 mb-10">
       
-      {/* 0. Global Header - Compact & Clean */}
+      {/* 0. Global Header */}
       <div className="bg-[#111827] text-white px-6 py-5 flex items-center justify-between relative overflow-hidden">
-        {/* Background Effects */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-[0.03] blur-3xl rounded-full -mr-12 -mt-12 pointer-events-none"></div>
         
         <div className="flex items-center gap-4 relative z-10">
@@ -53,178 +59,56 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
         </div>
       </div>
 
-      <div className="p-8 space-y-10 bg-white">
+      <div className="p-8 space-y-12 bg-white">
         
-        {/* 1. Passport Data */}
-        <section>
-          <FieldGroup title="1. Данные паспорта">
-             {passport.data ? (
-                <>
-                  <Field 
-                    label="Фамилия" 
-                    value={passport.data.lastName} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'lastName', v)} 
-                  />
-                  <Field 
-                    label="Имя" 
-                    value={passport.data.firstName} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'firstName', v)} 
-                  />
-                  <Field 
-                    label="Отчество" 
-                    value={passport.data.middleName} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'middleName', v)} 
-                  />
-                  <Field 
-                    label="Дата рождения" 
-                    value={passport.data.birthDate} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'birthDate', v)} 
-                  />
-                  <Field 
-                    label="Место рождения" 
-                    value={passport.data.birthPlace} fullWidth
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'birthPlace', v)} 
-                  />
-                  <Field 
-                    label="Адрес регистрации" 
-                    value={passport.data.registration} fullWidth
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'registration', v)} 
-                  />
-                  <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-8 pt-2">
-                    <Field 
-                        label="Серия и Номер" 
-                        value={passport.data.seriesNumber} 
-                        onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'seriesNumber', v)} 
-                    />
-                     <Field 
-                        label="Код подразделения" 
-                        value={passport.data.departmentCode} 
-                        onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'departmentCode', v)} 
-                    />
-                  </div>
-                  <Field 
-                    label="Кем выдан" 
-                    value={passport.data.issuedBy} fullWidth
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'issuedBy', v)} 
-                  />
-                  <Field 
-                    label="Дата выдачи" 
-                    value={passport.data.dateIssued} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'dateIssued', v)} 
-                  />
-                </>
-             ) : (
-               <div className="col-span-2">
-                 <EmptySection text="Паспорт не загружен" />
-               </div>
-             )}
-          </FieldGroup>
-        </section>
+        {/* Dynamic Section Rendering Loop */}
+        {sectionsToRender.map((sectionConfig) => {
+            const profileItem = profile[sectionConfig.profileKey];
+            // @ts-ignore - complex union type mapping
+            const data = profileItem?.data;
+            // @ts-ignore
+            const sourceFileId = profileItem?.sourceFileId;
+            const schema = DOCUMENT_SCHEMAS[sectionConfig.docType];
 
-        {/* 2. SNILS */}
-        <section>
-          <FieldGroup title="2. СНИЛС">
-            {passport.data && passport.data.snils ? (
-                <Field 
-                    label="Номер СНИЛС" 
-                    value={passport.data.snils} 
-                    onSave={(v) => handleFieldUpdate(passport.data, passport.sourceFileId, 'snils', v)} 
-                />
-            ) : (
-                <div className="col-span-2">
-                    <EmptySection text="СНИЛС не найден (ожидается в данных паспорта)" />
-                </div>
-            )}
-          </FieldGroup>
-        </section>
+            // Divider between main documents
+            const isNotFirst = sectionConfig.profileKey !== 'passport';
 
-        {/* 3. Diploma */}
-        <section>
-          <FieldGroup title="3. Диплом">
-            {diploma.data ? (
-                <>
-                   <Field 
-                        label="Серия и Номер" 
-                        value={`${diploma.data.series || ''} ${diploma.data.number}`} 
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'number', v)} 
-                   />
-                   <Field 
-                        label="Регистрационный номер" 
-                        value={diploma.data.regNumber} 
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'regNumber', v)} 
-                   />
-                   <Field 
-                        label="Учебное заведение" 
-                        value={diploma.data.institution} fullWidth
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'institution', v)} 
-                   />
-                   <Field 
-                        label="Специальность" 
-                        value={diploma.data.specialty} fullWidth
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'specialty', v)} 
-                   />
-                   <Field 
-                        label="Квалификация" 
-                        value={diploma.data.qualification} fullWidth
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'qualification', v)} 
-                   />
-                   <Field 
-                        label="Город" 
-                        value={diploma.data.city} 
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'city', v)} 
-                   />
-                   <Field 
-                        label="Дата окончания" 
-                        value={diploma.data.dateIssued} 
-                        onSave={(v) => handleFieldUpdate(diploma.data, diploma.sourceFileId, 'dateIssued', v)} 
-                   />
-                </>
-            ) : (
-                <div className="col-span-2">
-                    <EmptySection text="Диплом не загружен" />
-                </div>
-            )}
-          </FieldGroup>
-        </section>
+            return (
+                <section key={sectionConfig.profileKey} className="relative">
+                    {/* Visual separation for sections */}
+                    {isNotFirst && <div className="absolute -top-6 left-0 right-0 border-t border-gray-100"></div>}
 
-        {/* 4. Qualification (NOK) */}
-        <section>
-          <FieldGroup title="4. Независимая оценка">
-             {qualification.data ? (
-                 <>
-                    <Field 
-                        label="Регистрационный номер" 
-                        value={qualification.data.registrationNumber} fullWidth
-                        onSave={(v) => handleFieldUpdate(qualification.data, qualification.sourceFileId, 'registrationNumber', v)} 
-                    />
-                    <Field 
-                        label="Дата выдачи" 
-                        value={qualification.data.issueDate} 
-                        onSave={(v) => handleFieldUpdate(qualification.data, qualification.sourceFileId, 'issueDate', v)} 
-                    />
-                    <Field 
-                        label="Действителен до" 
-                        value={qualification.data.expirationDate} 
-                        onSave={(v) => handleFieldUpdate(qualification.data, qualification.sourceFileId, 'expirationDate', v)} 
-                    />
-                    <Field 
-                        label="Наименование ЦОК" 
-                        value={qualification.data.assessmentCenterName} fullWidth
-                        onSave={(v) => handleFieldUpdate(qualification.data, qualification.sourceFileId, 'assessmentCenterName', v)} 
-                    />
-                    <Field 
-                        label="Рег. номер ЦОК" 
-                        value={qualification.data.assessmentCenterRegNumber} fullWidth
-                        onSave={(v) => handleFieldUpdate(qualification.data, qualification.sourceFileId, 'assessmentCenterRegNumber', v)} 
-                    />
-                 </>
-             ) : (
-                 <div className="col-span-2">
-                    <EmptySection text="Свидетельство НОК не загружено" />
-                 </div>
-             )}
-          </FieldGroup>
-        </section>
+                    {/* Section Title (Optional, schema doesn't have a main title used here, we use Schema Sections) */}
+                    
+                    {data ? (
+                        <div className="space-y-8">
+                            {schema.sections.map((schemaSection) => (
+                                <FieldGroup key={schemaSection.id} title={schemaSection.title}>
+                                    {schemaSection.fields.map((field) => (
+                                        <Field 
+                                            key={field.key}
+                                            label={field.label}
+                                            value={data[field.key]}
+                                            fullWidth={field.fullWidth}
+                                            onSave={(val) => handleFieldUpdate(data, sourceFileId, field.key, val)}
+                                        />
+                                    ))}
+                                </FieldGroup>
+                            ))}
+                        </div>
+                    ) : (
+                         <div className="mt-4">
+                             {/* Show title even if empty to keep structure */}
+                             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-3 select-none">
+                                {schema.title}
+                                <div className="h-px bg-gray-100 flex-1"></div>
+                             </h4>
+                             <EmptySection text={sectionConfig.emptyText} />
+                         </div>
+                    )}
+                </section>
+            );
+        })}
 
       </div>
     </div>

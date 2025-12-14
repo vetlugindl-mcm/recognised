@@ -4,80 +4,11 @@ import { FileList } from './FileList';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { UnifiedProfileForm } from './UnifiedProfileForm';
 import { analyzeFile } from '../services/gemini';
+import { PdfService } from '../services/pdfService';
 import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
 import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon, LoaderIcon } from './icons';
 import { useUserProfile } from '../hooks/useUserProfile';
-
-// --- Types for PDF.js Integration ---
-interface PDFPageViewport {
-    width: number;
-    height: number;
-}
-interface PDFPageProxy {
-    getViewport: (params: { scale: number }) => PDFPageViewport;
-    render: (params: { canvasContext: CanvasRenderingContext2D; viewport: PDFPageViewport }) => { promise: Promise<void> };
-}
-interface PDFDocumentProxy {
-    getPage: (pageNumber: number) => Promise<PDFPageProxy>;
-}
-interface PDFJSStatic {
-    getDocument: (data: { data: ArrayBuffer }) => { promise: Promise<PDFDocumentProxy> };
-    GlobalWorkerOptions: { workerSrc: string };
-}
-
-declare global {
-  interface Window {
-    pdfjsLib?: PDFJSStatic;
-  }
-}
-
-// --- Utils ---
-
-/**
- * Generates a thumbnail from the first page of a PDF file.
- * Uses client-side rendering via PDF.js.
- */
-const generatePdfThumbnail = async (file: File): Promise<string | null> => {
-  try {
-    const pdfjsLib = window.pdfjsLib;
-    if (!pdfjsLib) {
-      console.warn("PDF.js library not loaded via CDN");
-      return null;
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-    
-    // Scale for thumbnail (target width ~200px)
-    const viewport = page.getViewport({ scale: 1.0 });
-    const scale = 200 / viewport.width;
-    const scaledViewport = page.getViewport({ scale });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = scaledViewport.width;
-    canvas.height = scaledViewport.height;
-    const context = canvas.getContext('2d');
-
-    if (!context) return null;
-
-    // Draw white background (handle transparent PDFs)
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    const renderContext = {
-      canvasContext: context,
-      viewport: scaledViewport,
-    };
-    
-    await page.render(renderContext).promise;
-    return canvas.toDataURL('image/jpeg', 0.8);
-  } catch (error) {
-    console.error("PDF Thumbnail Generation Error:", error);
-    return null;
-  }
-};
+import { AppError } from '../utils/errors';
 
 interface DocumentScannerProps {
     results: AnalysisItem[];
@@ -123,10 +54,10 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
     setFiles((prev) => [...prev, ...uploadedFiles]);
     setAnalysisState('idle'); 
 
-    // 2. Process PDFs asynchronously
+    // 2. Process PDFs asynchronously using the service
     uploadedFiles.forEach(async (uFile) => {
         if (uFile.file.type === 'application/pdf') {
-            const thumbUrl = await generatePdfThumbnail(uFile.file);
+            const thumbUrl = await PdfService.generateThumbnail(uFile.file);
             if (thumbUrl) {
                 setFiles(prev => prev.map(f => 
                     f.id === uFile.id ? { ...f, previewUrl: thumbUrl } : f
@@ -178,7 +109,12 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
 
         } catch (error: unknown) {
           console.error(`Error analyzing ${fileObj.file.name}:`, error);
-          const errorMessage = error instanceof Error ? error.message : "Не удалось обработать файл";
+          
+          // Use the structured public message if available, otherwise generic
+          const errorMessage = error instanceof AppError 
+            ? error.publicMessage 
+            : "Не удалось обработать файл";
+
           return {
             fileId: fileObj.id,
             fileName: fileObj.file.name,
@@ -193,6 +129,7 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
       onResultsChange(prevResults => {
           const combined = [...prevResults, ...newResults];
           // Sort priorities: Passport (0) -> Qualification (1) -> Diploma (2) -> Other
+          // TODO: Move sorting logic to a config in Phase 2
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
               if (item.data?.type === 'passport') return 0;
