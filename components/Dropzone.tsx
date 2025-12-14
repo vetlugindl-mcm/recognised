@@ -80,11 +80,12 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       onDrop={handleDrop}
       onClick={onZoneClick}
       className={`
-        relative group w-full h-48 rounded-2xl transition-all duration-500 ease-out cursor-pointer select-none overflow-hidden
-        ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:shadow-xl hover:shadow-gray-200/50 hover:scale-[1.005] active:scale-[0.99]'}
+        relative group w-full min-h-[260px] rounded-[2rem] cursor-pointer select-none overflow-hidden flex flex-col items-center justify-center
+        transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
+        ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''}
         ${isDragging 
-            ? 'ring-2 ring-black bg-gray-50 scale-[1.005]' 
-            : 'bg-white border border-gray-200'
+            ? 'bg-blue-50/60 scale-[1.02] shadow-2xl shadow-blue-900/10' 
+            : 'bg-white hover:bg-gray-50 hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1'
         }
       `}
     >
@@ -98,41 +99,52 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         disabled={disabled}
       />
 
-      {/* Background Effects */}
-      <div className={`absolute inset-0 bg-grid opacity-[0.3] pointer-events-none transition-opacity duration-300 ${isDragging ? 'opacity-50' : ''}`} />
-      <div className="absolute inset-0 bg-gradient-to-b from-white/0 via-white/20 to-white/60 pointer-events-none" />
+      {/* --- Decorative Background Layers --- */}
       
-      {/* Dashed Border Animation Wrapper */}
+      {/* 1. Grid Pattern */}
+      <div className={`absolute inset-0 bg-grid transition-opacity duration-700 ${isDragging ? 'opacity-50' : 'opacity-20'}`} />
+      
+      {/* 3. Active Border (Smooth Transition) */}
       <div className={`
-          absolute inset-3 border-2 border-dashed rounded-xl pointer-events-none transition-colors duration-300
-          ${isDragging ? 'border-black bg-white/40' : 'border-gray-200 group-hover:border-gray-300'}
+          absolute inset-0 rounded-[2rem] border-2 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+          ${isDragging 
+            ? 'border-black border-solid inset-0 opacity-100' 
+            : 'border-dashed border-gray-200 inset-2 group-hover:border-gray-300 group-hover:inset-3 group-hover:border-dashed'
+          }
       `}></div>
 
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
+      {/* --- Main Content --- */}
+      <div className="relative z-10 flex flex-col items-center justify-center p-6 text-center">
         
-        {/* Animated Icon Container */}
+        {/* Animated Icon Circle */}
         <div className={`
-            relative w-14 h-14 mb-4 rounded-xl flex items-center justify-center
-            transition-all duration-500
+            relative w-20 h-20 mb-6 rounded-2xl flex items-center justify-center
+            transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
             ${isDragging 
-                ? 'bg-black text-white shadow-lg rotate-3 scale-110' 
-                : 'bg-gray-50 text-gray-900 shadow-sm border border-gray-100 group-hover:shadow-md group-hover:-translate-y-1 group-hover:bg-white'
+                ? 'bg-black text-white shadow-xl scale-110 rotate-0' 
+                : 'bg-white text-gray-900 shadow-md border border-gray-100 group-hover:scale-105 group-hover:shadow-lg group-hover:-translate-y-1'
             }
         `}>
-           <CloudArrowUpIcon className={`w-6 h-6 transition-transform duration-300 ${isDragging ? 'animate-bounce' : ''}`} />
+           <CloudArrowUpIcon className={`w-8 h-8 transition-all duration-500 ${isDragging ? 'scale-110' : ''}`} />
+           
+           {/* Success Badge hint */}
+           <div className={`absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white transition-all duration-500 ease-out ${isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}></div>
         </div>
         
         {/* Typography */}
-        <div className="space-y-1 max-w-sm mx-auto">
-            <h3 className={`text-base font-bold tracking-tight transition-colors duration-300 ${isDragging ? 'text-black' : 'text-gray-900'}`}>
-               {title}
+        <div className="space-y-2 max-w-md mx-auto relative">
+            <h3 className={`text-lg font-bold tracking-tight transition-colors duration-300 ${isDragging ? 'text-black' : 'text-gray-900'}`}>
+               {isDragging ? 'Отпустите файлы здесь' : title}
             </h3>
-            <p className="text-xs text-gray-500 leading-relaxed font-medium px-4">
+            
+            <p className="text-sm text-gray-500 leading-relaxed font-medium px-4">
                {isDragging ? (
-                   <span className="text-black">Отпустите файлы для начала загрузки</span>
+                   <span className="text-gray-600 transition-opacity duration-300 animate-in fade-in slide-in-from-bottom-1">Мы автоматически обработаем документы</span>
                ) : (
-                   subtitle
+                   <>
+                      <span className="hidden sm:inline">Перетащите файлы сюда или </span>
+                      <span className="transition-colors duration-300 group-hover:text-gray-700">нажмите для выбора</span>
+                   </>
                )}
             </p>
         </div>
