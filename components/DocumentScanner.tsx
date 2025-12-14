@@ -5,7 +5,7 @@ import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { UnifiedProfileForm } from './UnifiedProfileForm';
 import { analyzeFile } from '../services/gemini';
 import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
-import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon } from './icons';
+import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon, LoaderIcon } from './icons';
 import { useUserProfile } from '../hooks/useUserProfile';
 
 // --- Types for PDF.js Integration ---
@@ -83,6 +83,16 @@ interface DocumentScannerProps {
     results: AnalysisItem[];
     onResultsChange: (results: AnalysisItem[] | ((prev: AnalysisItem[]) => AnalysisItem[])) => void;
 }
+
+// Icon Wrapper for Button
+const BtnIconWrapper = ({ active, children }: { active: boolean, children: React.ReactNode }) => (
+    <div className={`
+        absolute inset-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+        ${active ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}
+    `}>
+        {children}
+    </div>
+);
 
 export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onResultsChange }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -211,6 +221,7 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
   const unprocessedCount = files.length - results.length;
   const isAnalyzing = analysisState === 'analyzing';
   const hasResults = results.length > 0;
+  const isComplete = unprocessedCount === 0 && results.length > 0;
 
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto pb-10">
@@ -238,7 +249,6 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
                                 onFilesAdded={handleFilesAdded} 
                                 disabled={isAnalyzing} 
                                 title="Загрузить документы"
-                                subtitle="Нажмите или перетащите JPG, PDF, DOC"
                             />
                         </div>
                         
@@ -268,28 +278,30 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
                                 onClick={handleAnalyze}
                                 disabled={isAnalyzing || unprocessedCount === 0}
                                 className={`
-                                    relative overflow-hidden px-6 py-2.5 rounded-lg text-sm font-bold text-white shadow-lg transition-all duration-300
+                                    relative overflow-hidden px-8 py-2.5 rounded-lg text-sm font-bold text-white shadow-lg transition-all duration-300 min-w-[160px]
                                     hover:-translate-y-0.5 active:translate-y-0 active:scale-95
                                     disabled:opacity-80 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
-                                    ${unprocessedCount === 0 && results.length > 0
+                                    ${isComplete
                                         ? 'bg-gray-800 shadow-gray-200' 
                                         : 'bg-black shadow-black/20'}
                                 `}
                             >
-                                <div className="relative z-10 flex items-center gap-2">
-                                    {isAnalyzing ? (
-                                        <span>Обработка данных...</span>
-                                    ) : unprocessedCount === 0 && results.length > 0 ? (
-                                        <div className="flex items-center gap-2">
+                                <div className="relative z-10 flex items-center justify-center gap-2">
+                                    <div className="relative w-5 h-5">
+                                        <BtnIconWrapper active={isAnalyzing}>
+                                            <LoaderIcon className="w-5 h-5 animate-spin text-white/80" />
+                                        </BtnIconWrapper>
+                                        <BtnIconWrapper active={isComplete}>
                                             <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                                            <span>Готово</span>
-                                        </div>
-                                    ) : (
-                                        <>
+                                        </BtnIconWrapper>
+                                        <BtnIconWrapper active={!isAnalyzing && !isComplete}>
                                             <SparklesIcon className="w-4 h-4 text-white/90" />
-                                            <span>Распознать</span>
-                                        </>
-                                    )}
+                                        </BtnIconWrapper>
+                                    </div>
+                                    
+                                    <span className="relative">
+                                        {isAnalyzing ? "Обработка..." : isComplete ? "Готово" : "Распознать"}
+                                    </span>
                                 </div>
                             </button>
                         </div>

@@ -1,7 +1,7 @@
 # Project Manifesto & Engineering Standards (v2025.12)
 
 > **Context:** December 2025.
-> **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic.
+> **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic and kinetic, physics-based interactions.
 
 ---
 
@@ -28,7 +28,7 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 /
 ├── components/          # UI Components
 │   ├── common/          # Reusable Atoms (FormFields, etc.)
-│   ├── icons/           # SVG Icon Registry
+│   ├── icons/           # SVG Icon Registry (Modular files)
 │   ├── AnalysisResult   # Document visualization logic
 │   ├── DocumentScanner  # Main business logic container
 │   └── ...
@@ -79,14 +79,22 @@ try { ... } catch (error: any) { ... }
 ## 4. UI/UX Guidelines
 
 ### 4.1 Visual Language ("Premium Utility")
-*   **Palette:** Monochrome. Color is used *only* for status (Green = Verified, Red = Error).
-*   **Texture:** Subtle noise (`.bg-noise`) and glassmorphism (`.glass-panel`) are core brand elements.
-*   **Animation:** Staggered entry animations (`animate-enter`) for lists and cards.
+*   **Palette:** Monochrome. Color is used *only* for status (Green = Verified, Red = Error) or primary actions (Blue focus rings).
+*   **Texture:** Subtle noise (`.bg-noise`), engineering grids (`.bg-grid`), and glassmorphism (`.glass-panel`) are core brand elements.
+*   **Typography:** Inter font, tight tracking (`tracking-tight`), distinct hierarchy.
 
-### 4.2 Component Patterns
+### 4.2 Kinetic Motion & Animation (New Standard)
+*   **Physics-Based Easing:** All interactive transitions (hover, modal open, layout shifts) **MUST** use the custom bezier curve: `cubic-bezier(0.23, 1, 0.32, 1)`. Avoid linear or default browser easing.
+    *   *Tailwind:* `ease-[cubic-bezier(0.23,1,0.32,1)]`
+*   **Icon Morphing:** Icons must never strictly swap. They must morph using a combination of `scale`, `opacity`, and `rotate`.
+    *   *Example:* When changing from "Loading" to "Success", the spinner fades out/shrinks, and the checkmark fades in/grows.
+*   **Staggered Entry:** Lists and grids must use `animate-enter` with increasing `animation-delay` indices.
+
+### 4.3 Component Patterns
 *   **Forms:** Use inline editing patterns (`FormFields.tsx`). Do not use modal forms for data correction.
 *   **Skeletons:** Always use `AnalysisSkeleton` during AI processing. Never show a blank screen.
-*   **Feedback:** UI must be optimistic. File upload appears immediately; processing status updates asynchronously.
+*   **Optimistic UI:** File upload appears immediately; processing status updates asynchronously.
+*   **Hover Actions:** Destructive actions (like Delete) should be hidden by default and revealed on hover via fluid scaling/opacity transitions.
 
 ---
 
@@ -100,6 +108,8 @@ try { ... } catch (error: any) { ... }
 
 ## 6. Deprecations (Do Not Use)
 
+*   ❌ **Monolithic Icon Files:** Do not use `components/Icons.tsx`. All icons must be individual exports from `components/icons/index.tsx`.
+*   ❌ **`animate-bounce`:** Do not use "cartoonish" css animations. Use purposeful scaling/transformations.
 *   ❌ **`React.useEffect` for data fetching:** Use event handlers (button clicks, file drops) to trigger async actions.
 *   ❌ **`alert()`:** Use specific error states in the UI.
 *   ❌ **Uncontrolled Inputs:** All form fields must be controlled components via `value` and `onChange`.

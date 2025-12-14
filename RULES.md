@@ -1,1 +1,0 @@
-<!-- DEPRECATED: This file has been superseded by PROJECT_RULES.md -->

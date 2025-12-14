@@ -72,6 +72,9 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       }
   }
 
+  // Check if we are using the default subtitle to apply specific styling
+  const isDefaultSubtitle = subtitle === 'Перетащите файлы сюда или нажмите для выбора';
+
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -141,10 +144,14 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                {isDragging ? (
                    <span className="text-gray-600 transition-opacity duration-300 animate-in fade-in slide-in-from-bottom-1">Мы автоматически обработаем документы</span>
                ) : (
-                   <>
-                      <span className="hidden sm:inline">Перетащите файлы сюда или </span>
-                      <span className="transition-colors duration-300 group-hover:text-gray-700">нажмите для выбора</span>
-                   </>
+                   isDefaultSubtitle ? (
+                       <>
+                          <span className="hidden sm:inline">Перетащите файлы сюда или </span>
+                          <span className="font-semibold text-gray-900 transition-colors duration-300 group-hover:text-black">нажмите для выбора</span>
+                       </>
+                   ) : (
+                       <span className="transition-colors duration-300 group-hover:text-gray-700">{subtitle}</span>
+                   )
                )}
             </p>
         </div>

@@ -10,6 +10,17 @@ interface FileListProps {
   isAnalyzing?: boolean;
 }
 
+// Helper component for the animated icon transition
+const StatusIconWrapper = ({ active, children, className = "", type = "default" }: { active: boolean, children: React.ReactNode, className?: string, type?: "spin" | "default" }) => (
+    <div className={`
+        absolute inset-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+        ${active ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}
+        ${className}
+    `}>
+        {children}
+    </div>
+);
+
 export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, processedIds = [], isAnalyzing = false }) => {
   
   const getFileStyle = (file: File) => {
@@ -46,6 +57,7 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
           const IconComponent = style.Icon;
           const isProcessed = processedIds.includes(fileObj.id);
           const showSpinner = isAnalyzing && !isProcessed;
+          const isIdle = !isProcessed && !showSpinner;
 
           return (
             <div
@@ -63,7 +75,7 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
             >
               {/* Icon / Preview */}
               <div className={`
-                w-10 h-10 shrink-0 rounded-lg flex items-center justify-center border
+                w-10 h-10 shrink-0 rounded-lg flex items-center justify-center border transition-colors duration-300
                 ${fileObj.previewUrl ? 'border-gray-100 bg-white' : 'border-gray-200/60 bg-gray-50 text-gray-400'}
               `}>
                 {fileObj.previewUrl ? (
@@ -93,34 +105,55 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
                 </div>
               </div>
 
-              {/* Status Icons */}
-               <div className={`
-                   ml-auto flex items-center justify-center w-8 transition-opacity duration-200
-                   ${!disabled ? 'group-hover:opacity-0' : ''}
-               `}>
-                    {isProcessed ? (
-                        <CheckIcon className="w-5 h-5 text-green-500" />
-                    ) : showSpinner ? (
-                        <LoaderIcon className="w-5 h-5 text-gray-400 animate-spin" />
-                    ) : (
-                        <ClockIcon className="w-5 h-5 text-gray-300" />
+              {/* Action Area: Status Icons OR Remove Button */}
+               <div className="relative w-8 h-8 flex items-center justify-center ml-auto">
+                    
+                    {/* Layer 1: Status Icons (Check, Spinner, Clock) */}
+                    <div className={`
+                        relative w-5 h-5 transition-all duration-300 ease-out
+                        ${!disabled ? 'group-hover:opacity-0 group-hover:scale-50' : ''}
+                    `}>
+                        <StatusIconWrapper active={isProcessed}>
+                            <div className="bg-green-100 text-green-600 rounded-full p-0.5">
+                                <CheckIcon className="w-4 h-4" strokeWidth={3} />
+                            </div>
+                        </StatusIconWrapper>
+
+                        <StatusIconWrapper active={showSpinner} type="spin">
+                            <LoaderIcon className="w-5 h-5 text-black animate-spin" />
+                        </StatusIconWrapper>
+
+                        <StatusIconWrapper active={isIdle}>
+                            <ClockIcon className="w-5 h-5 text-gray-300" />
+                        </StatusIconWrapper>
+                    </div>
+
+                    {/* Layer 2: Remove Button (Reveals on Hover) */}
+                    {!disabled && (
+                        <div className={`
+                            absolute inset-0 flex items-center justify-center z-10
+                            transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]
+                            opacity-0 scale-50 rotate-45 pointer-events-none
+                            group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0 group-hover:pointer-events-auto
+                        `}>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemove(fileObj.id);
+                                }}
+                                className="
+                                    w-8 h-8 flex items-center justify-center rounded-lg 
+                                    bg-red-50 text-red-500 border border-red-100
+                                    hover:bg-red-500 hover:text-white hover:border-red-500 hover:shadow-md hover:shadow-red-500/20
+                                    transition-all duration-200
+                                "
+                                title="Удалить файл"
+                            >
+                                <XMarkIcon className="w-4 h-4" strokeWidth={2.5} />
+                            </button>
+                        </div>
                     )}
                </div>
-
-              {/* Action - Reveal on hover */}
-              {!disabled && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                    <button
-                    onClick={() => onRemove(fileObj.id)}
-                    className="
-                        p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 
-                        transition-colors
-                    "
-                    >
-                    <XMarkIcon className="w-5 h-5" />
-                    </button>
-                </div>
-              )}
             </div>
           );
         })}
