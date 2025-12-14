@@ -1,14 +1,14 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Dropzone } from './Dropzone';
 import { FileList } from './FileList';
-import { AnalysisResult } from './AnalysisResult';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { UnifiedProfileForm } from './UnifiedProfileForm';
 import { analyzeFile } from '../services/gemini';
-import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem, UserProfile, PassportData, DiplomaData, QualificationData } from '../types';
-import { SparklesIcon, CheckCircleIcon, DocumentIcon, BuildingOfficeIcon } from './icons';
+import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
+import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon } from './icons';
+import { useUserProfile } from '../hooks/useUserProfile';
 
-// Minimal interface for PDF.js to avoid 'any'
+// --- Types for PDF.js Integration ---
 interface PDFPageViewport {
     width: number;
     height: number;
@@ -27,16 +27,21 @@ interface PDFJSStatic {
 
 declare global {
   interface Window {
-    pdfjsLib: PDFJSStatic;
+    pdfjsLib?: PDFJSStatic;
   }
 }
 
-// Helper to generate PDF thumbnail using pdf.js
+// --- Utils ---
+
+/**
+ * Generates a thumbnail from the first page of a PDF file.
+ * Uses client-side rendering via PDF.js.
+ */
 const generatePdfThumbnail = async (file: File): Promise<string | null> => {
   try {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) {
-      console.warn("PDF.js library not found");
+      console.warn("PDF.js library not loaded via CDN");
       return null;
     }
 
@@ -45,7 +50,7 @@ const generatePdfThumbnail = async (file: File): Promise<string | null> => {
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
     
-    // Scale for thumbnail (target width ~200px for high res small preview)
+    // Scale for thumbnail (target width ~200px)
     const viewport = page.getViewport({ scale: 1.0 });
     const scale = 200 / viewport.width;
     const scaledViewport = page.getViewport({ scale });
@@ -57,7 +62,7 @@ const generatePdfThumbnail = async (file: File): Promise<string | null> => {
 
     if (!context) return null;
 
-    // Draw white background (PDFs might have transparent background in canvas)
+    // Draw white background (handle transparent PDFs)
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -69,123 +74,46 @@ const generatePdfThumbnail = async (file: File): Promise<string | null> => {
     await page.render(renderContext).promise;
     return canvas.toDataURL('image/jpeg', 0.8);
   } catch (error) {
-    console.error("Error generating PDF thumbnail:", error);
+    console.error("PDF Thumbnail Generation Error:", error);
     return null;
   }
 };
 
-export const DocumentScanner: React.FC = () => {
+interface DocumentScannerProps {
+    results: AnalysisItem[];
+    onResultsChange: (results: AnalysisItem[] | ((prev: AnalysisItem[]) => AnalysisItem[])) => void;
+}
+
+export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onResultsChange }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
-  const [results, setResults] = useState<AnalysisItem[]>([]);
 
-  // Cleanup effect to prevent memory leaks with createObjectURL
+  // Computed Profile
+  const userProfile = useUserProfile(results);
+
+  // Resource Cleanup: Revoke Object URLs when files change or component unmounts
   useEffect(() => {
     return () => {
       files.forEach(file => {
-        if (file.previewUrl) {
+        if (file.previewUrl && file.previewUrl.startsWith('blob:')) {
           URL.revokeObjectURL(file.previewUrl);
         }
       });
     };
   }, [files]);
 
-  // --- AGGREGATION LOGIC ---
-  const userProfile = useMemo<UserProfile>(() => {
-    // Default Empty Profile
-    const profile: UserProfile = {
-      fullName: 'Неизвестный кандидат',
-      passport: { data: null, sourceFileId: null },
-      diploma: { data: null, sourceFileId: null },
-      qualification: { data: null, sourceFileId: null }
-    };
-
-    results.forEach(item => {
-      if (!item.data) return;
-
-      if (item.data.type === 'passport') {
-        const incomingData = item.data as PassportData;
-        
-        if (!profile.passport.data) {
-          // Initialize with copy of first found document
-          profile.passport.data = { ...incomingData };
-          profile.passport.sourceFileId = item.fileId;
-        } else {
-          // MERGE STRATEGY: Combine data from multiple passport-related docs (e.g., Passport + SNILS)
-          const currentData = profile.passport.data;
-          
-          // 1. Merge SNILS: If current is missing it, but incoming has it
-          if (!currentData.snils && incomingData.snils) {
-            currentData.snils = incomingData.snils;
-          }
-
-          // 2. Merge Registration: If current is missing it
-          if (!currentData.registration && incomingData.registration) {
-            currentData.registration = incomingData.registration;
-          }
-
-          // 3. Merge Bio/Main Data: If current looks incomplete (no series), but incoming has it
-          // This handles the case where SNILS (incomplete passport data) was processed first
-          if (!currentData.seriesNumber && incomingData.seriesNumber) {
-             currentData.seriesNumber = incomingData.seriesNumber;
-             currentData.issuedBy = incomingData.issuedBy;
-             currentData.departmentCode = incomingData.departmentCode;
-             currentData.dateIssued = incomingData.dateIssued;
-             currentData.birthDate = incomingData.birthDate;
-             currentData.birthPlace = incomingData.birthPlace;
-             
-             // Also update names if the main passport has them (it usually does)
-             if (incomingData.lastName) currentData.lastName = incomingData.lastName;
-             if (incomingData.firstName) currentData.firstName = incomingData.firstName;
-             if (incomingData.middleName) currentData.middleName = incomingData.middleName;
-
-             // Point source to the main passport file
-             profile.passport.sourceFileId = item.fileId; 
-          }
-        }
-
-        // Update Full Name from the most complete data available
-        if (profile.passport.data.lastName) {
-           profile.fullName = `${profile.passport.data.lastName} ${profile.passport.data.firstName} ${profile.passport.data.middleName || ''}`.trim();
-        }
-
-      } else if (item.data.type === 'diploma') {
-        const data = item.data as DiplomaData;
-        if (!profile.diploma.data) {
-           profile.diploma.data = data;
-           profile.diploma.sourceFileId = item.fileId;
-           // Set name if still unknown
-           if (profile.fullName === 'Неизвестный кандидат') {
-             profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
-           }
-        }
-      } else if (item.data.type === 'qualification') {
-        const data = item.data as QualificationData;
-        if (!profile.qualification.data) {
-            profile.qualification.data = data;
-            profile.qualification.sourceFileId = item.fileId;
-             // Set name if still unknown
-           if (profile.fullName === 'Неизвестный кандидат') {
-             profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
-           }
-        }
-      }
-    });
-
-    return profile;
-  }, [results]);
-
   const handleFilesAdded = useCallback((newFiles: File[]) => {
-    // 1. Add files immediately with basic info
+    // 1. Optimistic UI update: Add files immediately
     const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
       file,
-      id: Math.random().toString(36).substring(7),
+      id: crypto.randomUUID(), // Modern UUID generation
       previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
     }));
+
     setFiles((prev) => [...prev, ...uploadedFiles]);
     setAnalysisState('idle'); 
 
-    // 2. Process PDFs asynchronously for thumbnails
+    // 2. Process PDFs asynchronously
     uploadedFiles.forEach(async (uFile) => {
         if (uFile.file.type === 'application/pdf') {
             const thumbUrl = await generatePdfThumbnail(uFile.file);
@@ -201,31 +129,27 @@ export const DocumentScanner: React.FC = () => {
   const handleRemoveFile = useCallback((id: string) => {
     setFiles((prev) => {
       const fileToRemove = prev.find((f) => f.id === id);
-      if (fileToRemove?.previewUrl) {
+      if (fileToRemove?.previewUrl && fileToRemove.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(fileToRemove.previewUrl);
       }
       return prev.filter((f) => f.id !== id);
     });
-    setResults(prev => prev.filter(r => r.fileId !== id));
-  }, []);
+    onResultsChange(prev => prev.filter(r => r.fileId !== id));
+  }, [onResultsChange]);
 
   const handleDataUpdate = useCallback((fileId: string, newData: AnalyzedDocument) => {
-    setResults(prevResults => 
+    onResultsChange(prevResults => 
       prevResults.map(item => 
         item.fileId === fileId ? { ...item, data: newData } : item
       )
     );
-  }, []);
+  }, [onResultsChange]);
 
   const handleAnalyze = async () => {
     const unprocessedFiles = files.filter(f => !results.some(r => r.fileId === f.id));
 
     if (unprocessedFiles.length === 0) {
-      if (files.length === 0) {
-          alert("Пожалуйста, загрузите файлы.");
-      } else {
-          alert("Все загруженные файлы уже обработаны.");
-      }
+      alert(files.length === 0 ? "Пожалуйста, загрузите файлы." : "Все загруженные файлы уже обработаны.");
       return;
     }
 
@@ -234,7 +158,6 @@ export const DocumentScanner: React.FC = () => {
     try {
       const promises = unprocessedFiles.map(async (fileObj): Promise<AnalysisItem> => {
         try {
-          // Now returns strongly typed AnalyzedDocument
           const analyzedData = await analyzeFile(fileObj.file);
           
           return {
@@ -245,7 +168,7 @@ export const DocumentScanner: React.FC = () => {
 
         } catch (error: unknown) {
           console.error(`Error analyzing ${fileObj.file.name}:`, error);
-          const errorMessage = typeof error === 'string' ? error : (error instanceof Error ? error.message : "Не удалось обработать файл");
+          const errorMessage = error instanceof Error ? error.message : "Не удалось обработать файл";
           return {
             fileId: fileObj.id,
             fileName: fileObj.file.name,
@@ -257,8 +180,9 @@ export const DocumentScanner: React.FC = () => {
 
       const newResults = await Promise.all(promises);
       
-      setResults(prevResults => {
+      onResultsChange(prevResults => {
           const combined = [...prevResults, ...newResults];
+          // Sort priorities: Passport (0) -> Qualification (1) -> Diploma (2) -> Other
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
               if (item.data?.type === 'passport') return 0;
@@ -281,7 +205,7 @@ export const DocumentScanner: React.FC = () => {
   const handleReset = () => {
     setFiles([]);
     setAnalysisState('idle');
-    setResults([]);
+    onResultsChange([]);
   };
 
   const unprocessedCount = files.length - results.length;
@@ -291,7 +215,7 @@ export const DocumentScanner: React.FC = () => {
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto pb-10">
         
-        {/* SECTION 0: PAGE HEADER */}
+        {/* PAGE HEADER */}
         <div className="flex items-center justify-between animate-enter">
           <div className="flex items-center gap-3">
               <div className="p-2 bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -304,19 +228,17 @@ export const DocumentScanner: React.FC = () => {
           </div>
         </div>
 
-        {/* SECTION 1: UPLOAD AREA */}
+        {/* UPLOAD AREA */}
         <section className="animate-enter" style={{ animationDelay: '100ms' }}>
-             
              <div className="glass-panel rounded-2xl p-1 shadow-xl shadow-gray-200/50 border-gray-100">
                  <div className="bg-white/70 rounded-xl p-6 space-y-6">
                     <div className={`grid grid-cols-1 ${files.length > 0 ? 'md:grid-cols-2' : ''} gap-8 items-start transition-all duration-300`}>
-                        {/* Changed from constrained width to full width */}
                         <div className="w-full">
                             <Dropzone 
                                 onFilesAdded={handleFilesAdded} 
                                 disabled={isAnalyzing} 
                                 title="Загрузить документы"
-                                subtitle="Нажмите для выбора или перетащите JPG, PDF, DOC"
+                                subtitle="Нажмите или перетащите JPG, PDF, DOC"
                             />
                         </div>
                         
@@ -356,10 +278,7 @@ export const DocumentScanner: React.FC = () => {
                             >
                                 <div className="relative z-10 flex items-center gap-2">
                                     {isAnalyzing ? (
-                                        <>
-                                            {/* No Spinner here, we use Skeletons below for better UX */}
-                                            <span>Обработка данных...</span>
-                                        </>
+                                        <span>Обработка данных...</span>
                                     ) : unprocessedCount === 0 && results.length > 0 ? (
                                         <div className="flex items-center gap-2">
                                             <CheckCircleIcon className="w-5 h-5 text-green-400" />
@@ -379,7 +298,7 @@ export const DocumentScanner: React.FC = () => {
              </div>
         </section>
 
-        {/* SECTION 2: UNIFIED SUMMARY FORM */}
+        {/* UNIFIED SUMMARY FORM */}
         {(hasResults || isAnalyzing) && (
            <section className="animate-enter" style={{ animationDelay: '200ms' }}>
               <div className="flex items-center gap-3 mb-6 px-1 mt-2">

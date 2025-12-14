@@ -50,9 +50,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, activeView, onNavig
         />
 
         <aside className={`
-            flex flex-col h-full py-6 px-4 z-40 bg-[#fafafa] md:bg-transparent
+            flex flex-col py-6 px-4 z-40 bg-[#fafafa] md:bg-transparent
             transition-transform duration-300 ease-out
-            fixed inset-y-0 left-0 w-64 md:relative md:translate-x-0 border-r border-transparent
+            fixed left-0 w-64 border-r border-transparent
+            top-16 bottom-0 md:relative md:top-0 md:h-full md:translate-x-0
             ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:shadow-none'}
             ${className || ''}
         `}>
@@ -79,26 +80,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, activeView, onNavig
             />
         </div>
 
-        {/* Modern Support Card */}
-        <div className="mt-auto">
-            <div className="glass-panel rounded-xl p-5 border border-white/50 bg-white/50">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm">
-                        <svg className="w-5 h-5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h4 className="text-gray-900 font-bold text-sm leading-none mb-1">Поддержка</h4>
-                        <p className="text-xs text-gray-500 leading-none">Мы онлайн</p>
-                    </div>
-                </div>
-                
-                <button className="w-full py-2.5 bg-black text-white rounded-lg text-xs font-bold hover:bg-gray-800 transition-all shadow-sm tracking-wide">
-                    Написать сообщение
-                </button>
-            </div>
-        </div>
         </aside>
     </>
   );

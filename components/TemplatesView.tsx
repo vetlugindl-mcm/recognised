@@ -1,70 +1,83 @@
 import React, { useState } from 'react';
 import { Dropzone } from './Dropzone';
-import { DocumentTemplate } from '../types';
+import { DocumentTemplate, UserProfile } from '../types';
+import { DocGeneratorService } from '../services/docGenerator';
 import { 
   DocumentIcon, 
   TagIcon, 
-  EyeIcon, 
-  ArrowDownTrayIcon, 
   TrashIcon, 
   Square2StackIcon,
   InformationCircleIcon,
   XMarkIcon,
   ClipboardIcon,
   CheckIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  RocketLaunchIcon,
+  LoaderIcon
 } from './icons';
+
+interface TemplatesViewProps {
+    templates: DocumentTemplate[];
+    onTemplatesChange: (templates: DocumentTemplate[] | ((prev: DocumentTemplate[]) => DocumentTemplate[])) => void;
+    userProfile: UserProfile;
+}
 
 interface VariableGroup {
   category: string;
   fields: { label: string; variable: string }[];
 }
 
-// Mapping database fields from types.ts (PassportData, DiplomaData, QualificationData) to Template Variables
+// CHANGED: Use single brackets for variables
 const VARIABLES_DATA: VariableGroup[] = [
   {
     category: 'Паспорт РФ',
     fields: [
-      { label: 'Фамилия', variable: '{{passport_last_name}}' },
-      { label: 'Имя', variable: '{{passport_first_name}}' },
-      { label: 'Отчество', variable: '{{passport_middle_name}}' },
-      { label: 'Серия и Номер', variable: '{{passport_series_number}}' },
-      { label: 'Дата выдачи', variable: '{{passport_date_issued}}' },
-      { label: 'Код подразделения', variable: '{{passport_department_code}}' },
-      { label: 'Кем выдан', variable: '{{passport_issued_by}}' },
-      { label: 'Дата рождения', variable: '{{passport_birth_date}}' },
-      { label: 'Место рождения', variable: '{{passport_birth_place}}' },
-      { label: 'Адрес регистрации', variable: '{{passport_registration}}' },
-      { label: 'СНИЛС', variable: '{{snils}}' },
+      { label: 'Фамилия', variable: '{passport_last_name}' },
+      { label: 'Имя', variable: '{passport_first_name}' },
+      { label: 'Отчество', variable: '{passport_middle_name}' },
+      { label: 'Серия и Номер', variable: '{passport_series_number}' },
+      { label: 'Дата выдачи', variable: '{passport_date_issued}' },
+      { label: 'Код подразделения', variable: '{passport_department_code}' },
+      { label: 'Кем выдан', variable: '{passport_issued_by}' },
+      { label: 'Дата рождения', variable: '{passport_birth_date}' },
+      { label: 'Место рождения', variable: '{passport_birth_place}' },
+      { label: 'Адрес регистрации', variable: '{passport_registration}' },
+      { label: 'СНИЛС', variable: '{snils}' },
     ]
   },
   {
     category: 'Диплом об образовании',
     fields: [
-      { label: 'Фамилия', variable: '{{diploma_last_name}}' },
-      { label: 'Имя', variable: '{{diploma_first_name}}' },
-      { label: 'Отчество', variable: '{{diploma_middle_name}}' },
-      { label: 'Серия', variable: '{{diploma_series}}' },
-      { label: 'Номер', variable: '{{diploma_number}}' },
-      { label: 'Регистрационный номер', variable: '{{diploma_reg_number}}' },
-      { label: 'Учебное заведение', variable: '{{diploma_institution}}' },
-      { label: 'Город', variable: '{{diploma_city}}' },
-      { label: 'Специальность', variable: '{{diploma_specialty}}' },
-      { label: 'Квалификация', variable: '{{diploma_qualification}}' },
-      { label: 'Дата выдачи', variable: '{{diploma_date_issued}}' },
+      { label: 'Фамилия', variable: '{diploma_last_name}' },
+      { label: 'Имя', variable: '{diploma_first_name}' },
+      { label: 'Отчество', variable: '{diploma_middle_name}' },
+      { label: 'Серия', variable: '{diploma_series}' },
+      { label: 'Номер', variable: '{diploma_number}' },
+      { label: 'Регистрационный номер', variable: '{diploma_reg_number}' },
+      { label: 'Учебное заведение', variable: '{diploma_institution}' },
+      { label: 'Город', variable: '{diploma_city}' },
+      { label: 'Специальность', variable: '{diploma_specialty}' },
+      { label: 'Квалификация', variable: '{diploma_qualification}' },
+      { label: 'Дата выдачи', variable: '{diploma_date_issued}' },
     ]
   },
   {
     category: 'Свидетельство о квалификации',
     fields: [
-      { label: 'Фамилия', variable: '{{qualification_last_name}}' },
-      { label: 'Имя', variable: '{{qualification_first_name}}' },
-      { label: 'Отчество', variable: '{{qualification_middle_name}}' },
-      { label: 'Регистрационный номер', variable: '{{qualification_reg_number}}' },
-      { label: 'Дата выдачи', variable: '{{qualification_issue_date}}' },
-      { label: 'Действителен до', variable: '{{qualification_expiration_date}}' },
-      { label: 'Наименование ЦОК', variable: '{{qualification_center_name}}' },
-      { label: 'Рег. номер ЦОК', variable: '{{qualification_center_reg_number}}' },
+      { label: 'Фамилия', variable: '{qualification_last_name}' },
+      { label: 'Имя', variable: '{qualification_first_name}' },
+      { label: 'Отчество', variable: '{qualification_middle_name}' },
+      { label: 'Регистрационный номер', variable: '{qualification_reg_number}' },
+      { label: 'Дата выдачи', variable: '{qualification_issue_date}' },
+      { label: 'Действителен до', variable: '{qualification_expiration_date}' },
+      { label: 'Наименование ЦОК', variable: '{qualification_center_name}' },
+      { label: 'Рег. номер ЦОК', variable: '{qualification_center_reg_number}' },
+    ]
+  },
+   {
+    category: 'Общее',
+    fields: [
+      { label: 'Полное ФИО', variable: '{full_name}' },
     ]
   }
 ];
@@ -169,18 +182,19 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   );
 };
 
-export const TemplatesView: React.FC = () => {
-  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+export const TemplatesView: React.FC<TemplatesViewProps> = ({ templates, onTemplatesChange, userProfile }) => {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const handleFilesAdded = (files: File[]) => {
     const newTemplates: DocumentTemplate[] = files.map(file => {
-      // Mock variable detection based on file content/name
+      // Mock variable detection
       const mockVars = [];
+      // CHANGED: Mock variables now use single brackets in visualization
       if (file.name.toLowerCase().includes('dogovor') || file.name.toLowerCase().includes('contract')) {
-        mockVars.push('company_name', 'director_name', 'date_start', 'amount');
+        mockVars.push('passport_last_name', 'passport_series_number');
       } else {
-        mockVars.push('passport_last_name', 'passport_series_number', 'snils');
+        mockVars.push('passport_last_name', 'snils');
       }
 
       return {
@@ -193,11 +207,27 @@ export const TemplatesView: React.FC = () => {
       };
     });
 
-    setTemplates(prev => [...prev, ...newTemplates]);
+    onTemplatesChange(prev => [...prev, ...newTemplates]);
   };
 
   const handleRemove = (id: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== id));
+    onTemplatesChange(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleGenerate = async (template: DocumentTemplate) => {
+    setGeneratingId(template.id);
+    try {
+        await DocGeneratorService.generateDocument(template.file, userProfile);
+    } catch (error) {
+        if (error instanceof Error) {
+            alert(error.message);
+        } else {
+            console.error("Generation failed:", error);
+            alert("Произошла неизвестная ошибка при генерации документа.");
+        }
+    } finally {
+        setGeneratingId(null);
+    }
   };
 
   return (
@@ -211,7 +241,7 @@ export const TemplatesView: React.FC = () => {
               </div>
               <div>
                   <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Шаблоны документов</h1>
-                  <p className="text-sm text-gray-500">Загрузите .docx файлы для генерации документов</p>
+                  <p className="text-sm text-gray-500">Загрузите .docx файлы для генерации заявлений</p>
               </div>
           </div>
           
@@ -229,7 +259,7 @@ export const TemplatesView: React.FC = () => {
           <Dropzone 
               onFilesAdded={handleFilesAdded} 
               title="Загрузить шаблон"
-              subtitle="Поддерживаются .DOCX с переменными {{var}}"
+              subtitle="Поддерживаются .DOCX с переменными {var}"
               accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
           />
         </section>
@@ -254,30 +284,30 @@ export const TemplatesView: React.FC = () => {
                               </div>
                           </div>
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                              <button className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                                  <EyeIcon className="w-4 h-4" />
-                              </button>
-                              <button className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                                  <ArrowDownTrayIcon className="w-4 h-4" />
-                              </button>
                               <button onClick={() => handleRemove(template.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                   <TrashIcon className="w-4 h-4" />
                               </button>
                           </div>
                       </div>
 
-                      <div className="mt-auto">
-                          <div className="flex items-center gap-2 mb-2">
-                              <TagIcon className="w-3 h-3 text-gray-400" />
-                              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Переменные</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                              {template.variables.map(v => (
-                                  <span key={v} className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-[11px] font-mono text-gray-600">
-                                      {`{{${v}}}`}
-                                  </span>
-                              ))}
-                          </div>
+                      <div className="mt-auto space-y-4">
+                          <button 
+                            onClick={() => handleGenerate(template)}
+                            disabled={generatingId === template.id}
+                            className="w-full py-2.5 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                             {generatingId === template.id ? (
+                                <>
+                                  <LoaderIcon className="w-4 h-4 animate-spin" />
+                                  <span>Генерация...</span>
+                                </>
+                             ) : (
+                                <>
+                                  <RocketLaunchIcon className="w-4 h-4" />
+                                  <span>Заполнить заявление</span>
+                                </>
+                             )}
+                          </button>
                       </div>
                   </div>
               ))}

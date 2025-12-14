@@ -80,10 +80,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       onDrop={handleDrop}
       onClick={onZoneClick}
       className={`
-        group relative w-full h-56 rounded-xl border border-dashed transition-all duration-200 ease-out flex flex-col items-center justify-center cursor-pointer overflow-hidden select-none
+        w-full h-56 rounded-xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none
         ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : ''}
         ${isDragging 
-            ? 'border-black bg-gray-50 ring-1 ring-black/5' 
+            ? 'border-blue-500 bg-blue-50' 
             : 'border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400'
         }
       `}
@@ -98,24 +98,17 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         disabled={disabled}
       />
       
-      <div className="flex flex-col items-center text-center px-6 transition-transform duration-300 group-hover:scale-[1.02]">
-        
-        {/* Material Design Icon Container */}
-        <div className={`
-            mb-4 w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-300
-            ${isDragging ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}
-        `}>
-          <CloudArrowUpIcon className="w-6 h-6" />
+      <div className="flex flex-col items-center text-center px-4">
+        <div className={`p-4 rounded-full mb-4 transition-colors ${isDragging ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+          <CloudArrowUpIcon className="w-8 h-8" />
         </div>
         
-        <div className="space-y-1.5 max-w-sm">
-            <h3 className="text-base font-semibold text-gray-900 tracking-tight">
-               {isDragging ? 'Отпускайте файлы' : title}
-            </h3>
-            <p className="text-xs text-gray-500 font-medium">
-               {isDragging ? 'Обработка начнется автоматически' : subtitle}
-            </p>
-        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-1">
+           {title}
+        </h3>
+        <p className="text-sm text-gray-500 max-w-xs">
+           {subtitle}
+        </p>
       </div>
     </div>
   );
