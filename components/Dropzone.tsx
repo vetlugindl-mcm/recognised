@@ -13,7 +13,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   onFilesAdded, 
   disabled,
   title = 'Загрузить документы',
-  subtitle = 'Нажмите для выбора или перетащите файлы',
+  subtitle = 'Перетащите файлы сюда или нажмите для выбора',
   accept = 'image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -80,11 +80,11 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       onDrop={handleDrop}
       onClick={onZoneClick}
       className={`
-        w-full h-56 rounded-xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center cursor-pointer select-none
-        ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : ''}
+        relative group w-full h-48 rounded-2xl transition-all duration-500 ease-out cursor-pointer select-none overflow-hidden
+        ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:shadow-xl hover:shadow-gray-200/50 hover:scale-[1.005] active:scale-[0.99]'}
         ${isDragging 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400'
+            ? 'ring-2 ring-black bg-gray-50 scale-[1.005]' 
+            : 'bg-white border border-gray-200'
         }
       `}
     >
@@ -97,18 +97,45 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         accept={accept}
         disabled={disabled}
       />
+
+      {/* Background Effects */}
+      <div className={`absolute inset-0 bg-grid opacity-[0.3] pointer-events-none transition-opacity duration-300 ${isDragging ? 'opacity-50' : ''}`} />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/0 via-white/20 to-white/60 pointer-events-none" />
       
-      <div className="flex flex-col items-center text-center px-4">
-        <div className={`p-4 rounded-full mb-4 transition-colors ${isDragging ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-          <CloudArrowUpIcon className="w-8 h-8" />
+      {/* Dashed Border Animation Wrapper */}
+      <div className={`
+          absolute inset-3 border-2 border-dashed rounded-xl pointer-events-none transition-colors duration-300
+          ${isDragging ? 'border-black bg-white/40' : 'border-gray-200 group-hover:border-gray-300'}
+      `}></div>
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
+        
+        {/* Animated Icon Container */}
+        <div className={`
+            relative w-14 h-14 mb-4 rounded-xl flex items-center justify-center
+            transition-all duration-500
+            ${isDragging 
+                ? 'bg-black text-white shadow-lg rotate-3 scale-110' 
+                : 'bg-gray-50 text-gray-900 shadow-sm border border-gray-100 group-hover:shadow-md group-hover:-translate-y-1 group-hover:bg-white'
+            }
+        `}>
+           <CloudArrowUpIcon className={`w-6 h-6 transition-transform duration-300 ${isDragging ? 'animate-bounce' : ''}`} />
         </div>
         
-        <h3 className="text-lg font-medium text-gray-900 mb-1">
-           {title}
-        </h3>
-        <p className="text-sm text-gray-500 max-w-xs">
-           {subtitle}
-        </p>
+        {/* Typography */}
+        <div className="space-y-1 max-w-sm mx-auto">
+            <h3 className={`text-base font-bold tracking-tight transition-colors duration-300 ${isDragging ? 'text-black' : 'text-gray-900'}`}>
+               {title}
+            </h3>
+            <p className="text-xs text-gray-500 leading-relaxed font-medium px-4">
+               {isDragging ? (
+                   <span className="text-black">Отпустите файлы для начала загрузки</span>
+               ) : (
+                   subtitle
+               )}
+            </p>
+        </div>
       </div>
     </div>
   );
