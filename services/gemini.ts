@@ -4,6 +4,7 @@ import { cleanAndParseJson } from "../utils/responseParser";
 import { AppError } from "../utils/errors";
 import { MockService } from "./mockService";
 import { getSystemPrompt } from "./promptService";
+import { GEMINI_RESPONSE_SCHEMA } from "../configs/aiSchema";
 
 const getBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -32,8 +33,6 @@ export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = await getBase64(file);
-    
-    // Dynamically build the prompt
     const systemPrompt = getSystemPrompt();
 
     const response = await ai.models.generateContent({
@@ -53,12 +52,16 @@ export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
       },
       config: {
         responseMimeType: "application/json",
+        responseSchema: GEMINI_RESPONSE_SCHEMA, // Native Structured Output
       }
     });
 
+    // With responseSchema, response.text is guaranteed to be a valid JSON string
+    // adhering to our schema structure.
     const textResponse = response.text || "{}";
     
-    // Parse AND Validate
+    // We still use cleanAndParseJson because it contains our Zod validation layer.
+    // This acts as a double-check: GenAI ensures structure, Zod ensures runtime types match our Typescript definitions.
     return cleanAndParseJson(textResponse);
 
   } catch (error: unknown) {
