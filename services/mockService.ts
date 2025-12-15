@@ -54,7 +54,13 @@ export class MockService {
       departmentCode: "770-001",
       birthDate: "01.01.1990",
       birthPlace: "гор. Москва",
-      registration: "г. Москва, ул. Арбат, д. 1, кв. 1",
+      
+      registrationCity: "г. Москва",
+      registrationStreet: "ул. Арбат",
+      registrationHouse: "д. 1",
+      registrationFlat: "кв. 1",
+      registrationDate: "20.05.2015",
+      
       snils: "123-456-789 00"
     };
   }

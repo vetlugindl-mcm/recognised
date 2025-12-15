@@ -8,7 +8,6 @@ export const mapProfileToTemplateVariables = (profile: UserProfile): Record<stri
   const vars: Record<string, string> = {};
 
   // Helper to safely add values
-  // CHANGED: Default is now "" (empty string) instead of "—" to ensure clean documents.
   const add = (key: string, value: string | null | undefined) => {
     vars[key] = value || ""; 
   };
@@ -25,11 +24,29 @@ export const mapProfileToTemplateVariables = (profile: UserProfile): Record<stri
     add('passport_issued_by', p.issuedBy);
     add('passport_birth_date', p.birthDate);
     add('passport_birth_place', p.birthPlace);
-    add('passport_registration', p.registration);
+    
+    // Detailed fields
+    add('passport_reg_city', p.registrationCity);
+    add('passport_reg_date', p.registrationDate);
+
+    // Reconstruct full address for legacy/convenience variable
+    // Format: "УЛ. ЛЕНИНА, Д. 5, КВ. 10"
+    const addressParts = [
+        p.registrationStreet, 
+        p.registrationHouse, 
+        p.registrationFlat
+    ].filter(Boolean);
+    
+    add('passport_reg_address', addressParts.join(', '));
+    
+    // Also provide the city + address combined
+    const fullReg = [p.registrationCity, ...addressParts].filter(Boolean).join(', ');
+    add('passport_registration', fullReg);
+
     add('snils', p.snils);
   } else {
     // Fill with blanks if document is missing
-    ['passport_last_name', 'passport_series_number', 'snils'].forEach(k => add(k, ''));
+    ['passport_last_name', 'passport_series_number', 'snils', 'passport_reg_city'].forEach(k => add(k, ''));
   }
 
   // 2. Diploma Data

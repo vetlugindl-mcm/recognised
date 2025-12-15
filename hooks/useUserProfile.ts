@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { AnalysisItem, UserProfile, PassportData, DiplomaData, QualificationData } from '../types';
+import { AnalysisItem, UserProfile, PassportData, DiplomaData, QualificationData, SnilsData } from '../types';
 
 export const useUserProfile = (results: AnalysisItem[]): UserProfile => {
   return useMemo<UserProfile>(() => {
@@ -73,6 +73,40 @@ export const useUserProfile = (results: AnalysisItem[]): UserProfile => {
             profile.qualification.sourceFileId = item.fileId;
         }
 
+        if (profile.fullName === 'Неизвестный кандидат' && data.lastName) {
+             profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
+        }
+      } else if (item.data.type === 'snils') {
+        // NEW: Handle Standalone SNILS
+        const data = item.data as SnilsData;
+        
+        // Strategy: Inject SNILS number into Passport Data (Identity holder)
+        if (!profile.passport.data) {
+             // Create a partial passport record just to hold the name and SNILS
+             profile.passport.data = {
+                 type: 'passport',
+                 lastName: data.lastName,
+                 firstName: data.firstName,
+                 middleName: data.middleName,
+                 snils: data.snils,
+                 // Empty fillers
+                 seriesNumber: '', issuedBy: '', dateIssued: '', departmentCode: '',
+                 birthDate: '', birthPlace: '', registrationCity: '', 
+                 registrationStreet: '', registrationHouse: '', registrationFlat: '', registrationDate: ''
+             };
+        } else {
+             // Merge SNILS into existing passport
+             profile.passport.data.snils = data.snils;
+             
+             // Optionally update name if passport was empty (unlikely but safe)
+             if (!profile.passport.data.lastName && data.lastName) {
+                 profile.passport.data.lastName = data.lastName;
+                 profile.passport.data.firstName = data.firstName;
+                 profile.passport.data.middleName = data.middleName;
+             }
+        }
+        
+        // Update global full name if needed
         if (profile.fullName === 'Неизвестный кандидат' && data.lastName) {
              profile.fullName = `${data.lastName} ${data.firstName} ${data.middleName || ''}`.trim();
         }

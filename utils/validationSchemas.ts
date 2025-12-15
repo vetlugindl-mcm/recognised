@@ -16,7 +16,13 @@ export const PassportSchema = z.object({
   departmentCode: safeString,
   birthDate: safeString,
   birthPlace: safeString,
-  registration: safeString,
+  
+  registrationCity: nullableString,
+  registrationStreet: nullableString,
+  registrationHouse: nullableString,
+  registrationFlat: nullableString,
+  registrationDate: nullableString,
+  
   snils: nullableString,
 });
 
@@ -47,6 +53,15 @@ export const QualificationSchema = z.object({
   assessmentCenterRegNumber: safeString,
 });
 
+export const SnilsDocSchema = z.object({
+  type: z.literal('snils'),
+  lastName: safeString,
+  firstName: safeString,
+  middleName: safeString,
+  snils: safeString, // The validation is loose here, business rules check format
+  dateIssued: nullableString
+});
+
 export const RawDataSchema = z.object({
   type: z.literal('raw'),
   rawText: z.string(),
@@ -57,6 +72,7 @@ export const DocumentSchema = z.discriminatedUnion('type', [
   PassportSchema,
   DiplomaSchema,
   QualificationSchema,
+  SnilsDocSchema,
   RawDataSchema
 ]);
 

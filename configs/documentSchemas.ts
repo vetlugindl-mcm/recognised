@@ -2,7 +2,8 @@ import {
     IdentificationIcon, 
     AcademicCapIcon, 
     ClipboardDocumentCheckIcon,
-    DocumentIcon 
+    DocumentIcon,
+    TagIcon // Used for SNILS
 } from '../components/icons/index';
 
 // We use loose typing for keys (string) in the config to avoid circular dependency hell,
@@ -27,7 +28,7 @@ export interface DocumentSchema {
     isDarkHeader?: boolean;
 }
 
-export type SupportedDocTypes = 'passport' | 'diploma' | 'qualification';
+export type SupportedDocTypes = 'passport' | 'diploma' | 'qualification' | 'snils';
 
 export const DOCUMENT_SCHEMAS: Record<SupportedDocTypes, DocumentSchema> = {
     passport: {
@@ -61,7 +62,11 @@ export const DOCUMENT_SCHEMAS: Record<SupportedDocTypes, DocumentSchema> = {
                 id: "registration",
                 title: "03. Прописка",
                 fields: [
-                    { key: "registration", label: "Адрес регистрации", fullWidth: true }
+                    { key: "registrationCity", label: "Город" },
+                    { key: "registrationDate", label: "Дата регистрации" },
+                    { key: "registrationStreet", label: "Улица", fullWidth: true },
+                    { key: "registrationHouse", label: "Дом / Корпус" },
+                    { key: "registrationFlat", label: "Квартира" }
                 ]
             }
         ]
@@ -136,6 +141,23 @@ export const DOCUMENT_SCHEMAS: Record<SupportedDocTypes, DocumentSchema> = {
                 fields: [
                     { key: "assessmentCenterName", label: "Наименование ЦОК", fullWidth: true },
                     { key: "assessmentCenterRegNumber", label: "Номер ЦОК", fullWidth: true }
+                ]
+            }
+        ]
+    },
+    snils: {
+        title: "СНИЛС",
+        icon: TagIcon,
+        sections: [
+            {
+                id: "info",
+                title: "Страховое свидетельство",
+                fields: [
+                    { key: "snils", label: "Номер СНИЛС", fullWidth: true },
+                    { key: "lastName", label: "Фамилия" },
+                    { key: "firstName", label: "Имя" },
+                    { key: "middleName", label: "Отчество", fullWidth: true },
+                    { key: "dateIssued", label: "Дата регистрации" }
                 ]
             }
         ]

@@ -41,7 +41,10 @@ const VARIABLES_DATA: VariableGroup[] = [
       { label: 'Кем выдан', variable: '{passport_issued_by}' },
       { label: 'Дата рождения', variable: '{passport_birth_date}' },
       { label: 'Место рождения', variable: '{passport_birth_place}' },
-      { label: 'Адрес регистрации', variable: '{passport_registration}' },
+      { label: 'Адрес регистрации (Полный)', variable: '{passport_registration}' },
+      { label: 'Город регистрации', variable: '{passport_reg_city}' },
+      { label: 'Улица, дом, кв', variable: '{passport_reg_address}' },
+      { label: 'Дата регистрации', variable: '{passport_reg_date}' },
       { label: 'СНИЛС', variable: '{snils}' },
     ]
   },

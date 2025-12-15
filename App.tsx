@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './components/DashboardLayout';
 import { DocumentScanner } from './components/DocumentScanner';
 import { TemplatesView } from './components/TemplatesView';
+import { NostroyView } from './components/NostroyView';
 import { ViewState, AnalysisItem, DocumentTemplate } from './types';
 import { useUserProfile } from './hooks/useUserProfile';
 import { StorageService } from './services/storageService';
@@ -67,13 +68,19 @@ const App: React.FC = () => {
 
   return (
     <DashboardLayout activeView={currentView} onNavigate={setCurrentView}>
-        {currentView === 'templates' ? (
+        {currentView === 'templates' && (
            <TemplatesView 
               templates={templates} 
               onTemplatesChange={setTemplates}
               userProfile={userProfile}
            />
-        ) : (
+        )}
+        
+        {currentView === 'nostroy' && (
+            <NostroyView userProfile={userProfile} />
+        )}
+
+        {currentView === 'scanner' && (
            <DocumentScanner 
               results={analysisResults}
               onResultsChange={setAnalysisResults}

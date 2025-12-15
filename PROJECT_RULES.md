@@ -1,4 +1,5 @@
-# Project Manifesto & Engineering Standards (v2025.12.5)
+
+# Project Manifesto & Engineering Standards (v2025.12.6)
 
 > **Context:** December 2025.
 > **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic, schema-driven UI, and kinetic interactions.
@@ -40,9 +41,10 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 │   ├── gemini.ts        # Main AI Orchestrator
 │   ├── mockService.ts   # Mock Strategy
 │   ├── pdfService.ts    # PDF Logic Isolation
-│   ├── promptService.ts # Extraction Logic (Not Formatting)
-│   └── storageService.ts# [NEW] Persistence (Hybrid Strategy)
+│   ├── promptService.ts # Extraction Logic (OCR & Normalization)
+│   └── storageService.ts# Persistence (Hybrid Strategy)
 ├── utils/               # Pure Functions & Helpers
+│   ├── businessRules.ts # [NEW] Compliance & Validation Logic
 │   ├── errors.ts        # Standardized Error Handling
 │   ├── validationSchemas.ts # Zod Definitions (Runtime Safety)
 │   └── responseParser.ts# LLM Sanitization & Validation
@@ -50,14 +52,6 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 ├── App.tsx              # Router & Global State Holder
 └── index.html           # Entry Point & Importmaps
 ```
-
-### Key Architectural Patterns
-1.  **Schema-Driven UI:** Forms and result cards (`UnifiedProfileForm`, `AnalysisResult`) are generated dynamically from `configs/documentSchemas.ts`. We **DO NOT** hardcode input fields for specific documents in JSX.
-2.  **Runtime Validation:** We trust no one, especially AI. All LLM responses must pass through `Zod` schemas (`utils/validationSchemas.ts`) before reaching the UI state, even if the API guarantees strict JSON.
-3.  **Service Isolation:**
-    *   UI components never touch `pdfjsLib` directly (use `PdfService`).
-    *   UI components never touch `localStorage` or `indexedDB` directly (use `StorageService`).
-4.  **Strategy Pattern:** Logic switches between Live API and `MockService` based on environment variables.
 
 ---
 
@@ -68,53 +62,58 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 *   **Zod Integration:** API responses are parsed via `cleanAndParseJson`.
 *   **Error Normalization:** All catch blocks must use `normalizeError` or throw `AppError` to ensure consistent error shapes in the UI.
 
-```typescript
-// ✅ CORRECT
-try { 
-  ... 
-} catch (error) { 
-  throw new AppError('NETWORK_ERROR', 'Failed to fetch', error); 
-}
-```
-
 ### 3.2 Naming Conventions
-*   **Schemas:** `[Entity]Schema` (e.g., `PassportSchema`).
+*   **Schemas:** `[Entity]Schema` (e.g., `SnilsDocSchema`, `PassportSchema`).
 *   **Components:** `PascalCase` (e.g., `UnifiedProfileForm.tsx`).
 *   **Services:** `camelCase` (e.g., `pdfService.ts`).
 *   **Constants:** `UPPER_SNAKE_CASE` (e.g., `DOCUMENT_SCHEMAS`).
 
-### 3.3 Security & Performance
-*   **Memory Management:** explicit cleanup of `URL.createObjectURL` via `useEffect` return function is MANDATORY.
-*   **Sanitization:** AI JSON output is parsed via `cleanAndParseJson`.
-*   **PDF Processing:** Heavy PDF operations must be offloaded to `PdfService` to keep components clean.
+---
+
+## 4. OCR & Data Extraction Rules (AI Strategy)
+
+We employ specific strategies to handle the complexities of Russian bureaucratic documents.
+
+### 4.1 Date Normalization
+*   **Problem:** Documents mix digital dates ("13.11.2025") and text dates ("13 ноября 2025 года").
+*   **Rule:** The AI **MUST** normalize all dates to the `DD.MM.YYYY` format during the extraction phase.
+*   **Implementation:** Enforced via System Prompt instructions.
+
+### 4.2 Spatial Awareness (Headers vs. Body)
+*   **Problem:** Critical IDs (like Qualification Registration Numbers) often appear in the top page header, above the document title.
+*   **Rule:** The OCR extraction instruction must explicitly direct the model to scan the **entire viewport**, including headers and footers, before processing the main body.
+*   **Target:** Specifically for `qualification` (NOK) documents, the `registrationNumber` is prioritized from the top-right or top-center header.
+
+### 4.3 Complex Address Parsing
+*   **Problem:** Registration stamps in passports are unstructured text blocks.
+*   **Rule:** Addresses must be split into atomic components: `City`, `Street`, `House`, `Flat`.
+*   **Logic:** The prompt instructs the model to read multi-line stamps aggressively to find "hidden" house/flat numbers on the second or third lines.
+
+### 4.4 Document Classification
+The system currently supports and strictly distinguishes:
+1.  **Passport (`passport`)**: Main identity document. Contains Identity + Registration.
+2.  **SNILS (`snils`)**: Green laminated card. Extracted as a standalone document but merged into the Identity profile.
+3.  **Diploma (`diploma`)**: Education document.
+4.  **Qualification (`qualification`)**: NOK Certificate (Independent Qualification Assessment).
 
 ---
 
-## 4. UI/UX Guidelines
+## 5. UI/UX Guidelines
 
-### 4.1 Visual Language ("Premium Utility")
+### 5.1 Visual Language ("Premium Utility")
 *   **Palette:** Monochrome. Color is used *only* for status (Green = Verified, Red = Error) or primary actions.
 *   **Structure:** Layouts are defined by the Data Schema. If a field exists in `documentSchemas.ts`, it automatically appears in the UI.
 
-### 4.2 Kinetic Motion & Animation
+### 5.2 Kinetic Motion & Animation
 *   **Physics-Based Easing:** All interactive transitions **MUST** use `cubic-bezier(0.23, 1, 0.32, 1)`.
 *   **Staggered Entry:** Lists and grids must use `animate-enter` with increasing `animation-delay`.
 
 ---
 
-## 5. AI Integration Rules (Structured Output)
-
-1.  **Native Structured Output:** We **DO NOT** use prompt engineering to force JSON (e.g., "Return valid JSON"). instead, we use the `responseSchema` configuration in `configs/aiSchema.ts`.
-2.  **Extraction Logic Only:** Prompts in `services/promptService.ts` should focus solely on *how* to extract data (e.g., "Look for SNILS at the bottom"), not on formatting the response.
-3.  **Validation First:** The application must never crash because AI returned a missing field. Zod schemas must handle `null` coercion (e.g., `transform(val => val ?? "")`) to ensure UI safety.
-4.  **Mocking:** `MockService` must strictly adhere to the same interfaces (`AnalyzedDocument`) as the real AI.
-
----
-
 ## 6. Persistence Strategy (Hybrid)
 
-1.  **Metadata (Fast):** Analysis results (JSON) and file metadata are stored in `localStorage` for synchronous, instant hydration on load.
-2.  **Blobs (Heavy):** Binary files (images, PDFs) are stored in `IndexedDB` (via `idb-keyval`) to avoid the 5MB localStorage limit.
+1.  **Metadata (Fast):** Analysis results (JSON) and file metadata are stored in `localStorage`.
+2.  **Blobs (Heavy):** Binary files (images, PDFs) are stored in `IndexedDB` (via `idb-keyval`).
 3.  **Hydration:** The app loads metadata first to paint the UI skeleton, then lazily loads blobs from IndexedDB.
 
 ---
@@ -124,5 +123,4 @@ try {
 *   ❌ **JSON Formatting Prompts:** Do not ask the model to "Format as JSON". Use `responseSchema`.
 *   ❌ **Hardcoded Forms:** Do not manually write `<input>` for document fields. Update `configs/documentSchemas.ts` instead.
 *   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson` from `utils/responseParser.ts`.
-*   ❌ **Monolithic `gemini.ts`:** Do not put prompt text or mock data inside the main service file.
 *   ❌ **Raw `Error` throwing:** Always wrap errors in `AppError`.

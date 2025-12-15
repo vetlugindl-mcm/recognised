@@ -35,8 +35,25 @@ export interface PassportData {
   departmentCode: string;
   birthDate: string;
   birthPlace: string;
-  registration: string;
+  
+  // Registration fields
+  registrationCity: string | null;
+  registrationStreet: string | null; 
+  registrationHouse: string | null;  
+  registrationFlat: string | null;   
+  registrationDate: string | null;
+  
   snils: string | null;
+}
+
+// NEW: Standalone SNILS Document
+export interface SnilsData {
+  type: 'snils';
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  snils: string; // The main value we need
+  dateIssued?: string;
 }
 
 export interface QualificationData {
@@ -56,7 +73,7 @@ export interface RawData {
   rawText: string;
 }
 
-export type AnalyzedDocument = DiplomaData | PassportData | QualificationData | RawData;
+export type AnalyzedDocument = DiplomaData | PassportData | QualificationData | SnilsData | RawData;
 
 export interface AnalysisItem {
   fileId: string;
@@ -89,4 +106,24 @@ export interface UserProfile {
     data: QualificationData | null;
     sourceFileId: string | null;
   };
+  // We keep SNILS logically attached to Identity (Passport) in the unified view, 
+  // but we can track the source document if needed.
+}
+
+// --- Validation & Compliance Types ---
+
+export type ComplianceStatus = 'success' | 'warning' | 'error';
+
+export interface ValidationRuleResult {
+  id: string;
+  label: string;
+  status: ComplianceStatus;
+  message: string;
+}
+
+export interface ComplianceReport {
+  score: number; // 0 to 100
+  status: ComplianceStatus;
+  checks: ValidationRuleResult[];
+  summary: string;
 }
