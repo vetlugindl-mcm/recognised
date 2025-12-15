@@ -5,9 +5,11 @@ import { TemplatesView } from './components/TemplatesView';
 import { NostroyView } from './components/NostroyView';
 import { ViewState } from './types';
 import { useAppContext } from './context/AppContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('scanner');
+  // Set default view to 'upload_docs' based on new structure
+  const [currentView, setCurrentView] = useState<ViewState>('upload_docs');
   const { isLoaded } = useAppContext();
 
   if (!isLoaded) {
@@ -20,15 +22,27 @@ const App: React.FC = () => {
 
   return (
     <DashboardLayout activeView={currentView} onNavigate={setCurrentView}>
+        {/* Mapping New IDs to Existing Components */}
+        
         {currentView === 'templates' && (
-           <TemplatesView />
+           <ErrorBoundary fallbackTitle="Ошибка в шаблонах">
+              <TemplatesView />
+           </ErrorBoundary>
         )}
         
-        {currentView === 'nostroy' && (
-            <NostroyView />
+        {currentView === 'nostroy_match' && (
+            <ErrorBoundary fallbackTitle="Ошибка проверки соответствия">
+                <NostroyView mode="nostroy" />
+            </ErrorBoundary>
         )}
 
-        {currentView === 'scanner' && (
+        {currentView === 'nopriz_match' && (
+            <ErrorBoundary fallbackTitle="Ошибка проверки соответствия">
+                <NostroyView mode="nopriz" />
+            </ErrorBoundary>
+        )}
+
+        {currentView === 'upload_docs' && (
            <DocumentScanner />
         )}
     </DashboardLayout>

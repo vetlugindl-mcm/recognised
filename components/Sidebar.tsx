@@ -1,11 +1,11 @@
-import React from 'react';
-import { BuildingOfficeIcon, Square2StackIcon, BriefcaseIcon } from './icons';
+import React, { useState } from 'react';
+import { BuildingOfficeIcon, Square2StackIcon, ChevronDownIcon, CloudArrowUpIcon, ApartmentBuildingIcon, CitySkylineIcon } from './icons';
 import { ViewState } from '../types';
 
 interface SidebarProps {
   className?: string;
-  activeView: ViewState;
-  onNavigate: (view: ViewState) => void;
+  activeView: ViewState | string; // Loosened type for future states
+  onNavigate: (view: any) => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -14,19 +14,22 @@ const MenuItem = ({
   icon: Icon, 
   label, 
   active = false,
-  onClick
+  onClick,
+  isSubItem = false
 }: { 
   icon: any, 
   label: string, 
   active?: boolean,
-  onClick: () => void 
+  onClick: () => void,
+  isSubItem?: boolean
 }) => (
   <div 
     onClick={onClick}
     className={`
     group flex items-center gap-3 px-3.5 py-3 rounded-lg cursor-pointer transition-all duration-200 font-medium text-sm tracking-normal select-none
+    ${isSubItem ? 'ml-4' : ''}
     ${active 
-      ? 'bg-black text-white shadow-md shadow-black/10' 
+      ? 'bg-gray-800 text-white shadow-md shadow-gray-800/10' // Lighter black (Charcoal)
       : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
     }
   `}>
@@ -35,8 +38,58 @@ const MenuItem = ({
   </div>
 );
 
+const MenuGroup = ({
+    label,
+    icon: Icon,
+    isOpen,
+    onToggle,
+    children
+}: {
+    label: string,
+    icon: any,
+    isOpen: boolean,
+    onToggle: () => void,
+    children: React.ReactNode
+}) => {
+    return (
+        <div className="flex flex-col">
+            {/* Group Header */}
+            <div 
+                onClick={onToggle}
+                className={`
+                    group flex items-center justify-between px-3.5 py-3 rounded-lg cursor-pointer transition-all duration-200 font-medium text-sm tracking-normal select-none
+                    text-gray-900 hover:bg-gray-100
+                `}
+            >
+                <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 text-gray-900" />
+                    <span>{label}</span>
+                </div>
+                <ChevronDownIcon 
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${isOpen ? '-rotate-180' : 'rotate-0'}`} 
+                />
+            </div>
+
+            {/* Collapsible Content */}
+            <div 
+                className={`
+                    overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+                `}
+                style={{ maxHeight: isOpen ? '500px' : '0px', opacity: isOpen ? 1 : 0.5 }}
+            >
+                <div className="flex flex-col gap-1 py-1">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({ className, activeView, onNavigate, isOpen, onClose }) => {
-  const handleNavigate = (view: ViewState) => {
+  // State for the main NOPRIZ group
+  const [isNrsOpen, setIsNrsOpen] = useState(true); // Default open for better UX
+
+  const handleNavigate = (view: string) => {
       onNavigate(view);
       if (onClose) onClose();
   }
@@ -60,24 +113,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, activeView, onNavig
         
         {/* Navigation */}
         <div className="flex flex-col gap-1.5 flex-1">
-            <MenuItem 
+            
+            {/* Accordion Group */}
+            <MenuGroup 
+                label="НОСТРОЙ/НОПРИЗ" 
                 icon={BuildingOfficeIcon} 
-                label="Внесение в НОПРИЗ" 
-                active={activeView === 'scanner'} 
-                onClick={() => handleNavigate('scanner')}
-            />
-             <MenuItem 
-                icon={BriefcaseIcon} 
-                label="Внесение в НОСТРОЙ" 
-                active={activeView === 'nostroy'} 
-                onClick={() => handleNavigate('nostroy')}
-            />
-            <MenuItem 
-                icon={Square2StackIcon} 
-                label="Шаблоны документов" 
-                active={activeView === 'templates'} 
-                onClick={() => handleNavigate('templates')}
-            />
+                isOpen={isNrsOpen} 
+                onToggle={() => setIsNrsOpen(!isNrsOpen)}
+            >
+                 <MenuItem 
+                    icon={CloudArrowUpIcon} 
+                    label="Загрузка документов" 
+                    active={activeView === 'upload_docs'} 
+                    onClick={() => handleNavigate('upload_docs')}
+                    isSubItem
+                />
+                <MenuItem 
+                    icon={ApartmentBuildingIcon} 
+                    label="НОСТРОЙ" 
+                    active={activeView === 'nostroy_match'} 
+                    onClick={() => handleNavigate('nostroy_match')}
+                    isSubItem
+                />
+                 <MenuItem 
+                    icon={CitySkylineIcon} 
+                    label="НОПРИЗ" 
+                    active={activeView === 'nopriz_match'} 
+                    onClick={() => handleNavigate('nopriz_match')}
+                    isSubItem
+                />
+                 <MenuItem 
+                    icon={Square2StackIcon} 
+                    label="Шаблоны документов" 
+                    active={activeView === 'templates'} 
+                    onClick={() => handleNavigate('templates')}
+                    isSubItem
+                />
+            </MenuGroup>
         </div>
 
         </aside>

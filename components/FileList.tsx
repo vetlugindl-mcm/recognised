@@ -1,6 +1,7 @@
 import React from 'react';
 import { UploadedFile, AnalysisItem } from '../types';
-import { XMarkIcon, AcademicCapIcon, PhotoIcon, CheckIcon, ClockIcon, LoaderIcon, ExclamationCircleIcon } from './icons';
+import { XMarkIcon, CheckIcon, ClockIcon, LoaderIcon, ExclamationCircleIcon } from './icons';
+import { FilePreview } from './FilePreview';
 
 interface FileListProps {
   files: UploadedFile[];
@@ -23,24 +24,11 @@ const StatusIconWrapper = ({ active, children, className = "", type = "default" 
 
 export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, analysisResults = [], isAnalyzing = false }) => {
   
-  const getFileStyle = (file: File) => {
+  const getFileLabel = (file: File) => {
     const type = file.type;
-    if (type === 'application/pdf') {
-      return {
-        label: 'PDF',
-        Icon: AcademicCapIcon
-      };
-    }
-    if (type.includes('word') || type.includes('doc')) {
-      return {
-        label: 'DOC',
-        Icon: AcademicCapIcon
-      };
-    }
-    return {
-        label: type.startsWith('image/') ? 'IMG' : 'FILE',
-        Icon: PhotoIcon
-    };
+    if (type === 'application/pdf') return 'PDF';
+    if (type.includes('word') || type.includes('doc')) return 'DOC';
+    return type.startsWith('image/') ? 'IMG' : 'FILE';
   };
 
   return (
@@ -53,9 +41,6 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
       
       <div className="flex flex-col gap-2">
         {files.map((fileObj, index) => {
-          const style = getFileStyle(fileObj.file);
-          const IconComponent = style.Icon;
-          
           const result = analysisResults.find(r => r.fileId === fileObj.id);
           const isProcessed = !!result;
           const showSpinner = isAnalyzing && !isProcessed;
@@ -78,26 +63,17 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
               `}
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              {/* Icon / Preview */}
+              {/* Icon / Preview Component */}
               <div className={`
-                w-10 h-10 shrink-0 rounded-lg flex items-center justify-center border transition-colors duration-300
-                ${fileObj.previewUrl ? 'border-gray-100 bg-white' : 'border-gray-200/60 bg-gray-50 text-gray-400'}
+                w-10 h-10 shrink-0 rounded-lg flex items-center justify-center border transition-colors duration-300 overflow-hidden
+                ${'border-gray-100 bg-white'}
               `}>
-                {fileObj.previewUrl ? (
-                  <img
-                    src={fileObj.previewUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover rounded-lg opacity-90 group-hover:opacity-100 transition-opacity"
-                  />
-                ) : (
-                  <IconComponent className="w-5 h-5" />
-                )}
+                <FilePreview file={fileObj.file} />
               </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                 <div className="flex items-center gap-2">
-                   {/* Removed leading-none to prevent clipping of descenders (д, р, у, ф) */}
                    <p className="text-sm font-medium text-gray-900 truncate tracking-normal" title={fileObj.file.name}>
                     {fileObj.file.name}
                   </p>
@@ -105,7 +81,7 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
                 
                 <div className="flex items-center gap-2 text-xs text-gray-500 font-normal">
                   <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 leading-none">
-                    {style.label}
+                    {getFileLabel(fileObj.file)}
                   </span>
                   <span className="opacity-80">{(fileObj.file.size / 1024 / 1024).toFixed(2)} MB</span>
                 </div>

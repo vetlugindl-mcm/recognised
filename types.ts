@@ -3,11 +3,14 @@
 export interface UploadedFile {
   file: File;
   id: string;
-  previewUrl?: string;
+  // previewUrl is removed to prevent memory leaks and state duplication. 
+  // Visual components should derive it using useObjectUrl or PdfService.
 }
 
 export type AnalysisState = 'idle' | 'analyzing' | 'complete' | 'error';
-export type ViewState = 'scanner' | 'nostroy' | 'templates';
+
+// UPDATED: New View IDs
+export type ViewState = 'upload_docs' | 'nostroy_match' | 'nopriz_match' | 'templates';
 
 export interface DiplomaData {
   type: 'diploma';

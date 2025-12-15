@@ -72,11 +72,20 @@ const CheckItem = ({ check }: { check: ValidationRuleResult }) => {
     );
 };
 
-export const NostroyView: React.FC = () => {
+interface NostroyViewProps {
+    mode?: 'nostroy' | 'nopriz';
+}
+
+export const NostroyView: React.FC<NostroyViewProps> = ({ mode = 'nostroy' }) => {
   const { analysisResults } = useAppContext();
   const userProfile = useUserProfile(analysisResults);
   
   const report: ComplianceReport = useMemo(() => calculateCompliance(userProfile), [userProfile]);
+
+  const title = mode === 'nopriz' ? 'Внесение в НОПРИЗ' : 'Внесение в НОСТРОЙ';
+  const subtitle = mode === 'nopriz' 
+    ? 'Проверка документов для Национального объединения изыскателей и проектировщиков'
+    : 'Автоматическая проверка документов на соответствие требованиям реестра';
 
   return (
     <div className="max-w-5xl mx-auto pb-10 flex flex-col gap-8">
@@ -87,8 +96,8 @@ export const NostroyView: React.FC = () => {
                   <BuildingOfficeIcon className="w-6 h-6 text-gray-900" />
               </div>
               <div>
-                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Внесение в НОСТРОЙ</h1>
-                  <p className="text-sm text-gray-500">Автоматическая проверка документов на соответствие требованиям реестра</p>
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{title}</h1>
+                  <p className="text-sm text-gray-500">{subtitle}</p>
               </div>
           </div>
         </div>
@@ -152,7 +161,7 @@ export const NostroyView: React.FC = () => {
                  {report.checks.length === 0 ? (
                     <div className="glass-panel rounded-2xl p-10 flex flex-col items-center justify-center text-center text-gray-400">
                         <BuildingOfficeIcon className="w-10 h-10 mb-3 opacity-20" />
-                        <p>Загрузите документы в разделе "Внесение в НОПРИЗ" для начала проверки.</p>
+                        <p>Загрузите документы в разделе "Загрузка документов" для начала проверки.</p>
                     </div>
                  ) : (
                     <div className="space-y-4">
