@@ -1,5 +1,5 @@
 
-# Project Manifesto & Engineering Standards (v2025.12.6)
+# Project Manifesto & Engineering Standards (v2025.12.7)
 
 > **Context:** December 2025.
 > **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic, schema-driven UI, and kinetic interactions.
@@ -101,12 +101,27 @@ The system currently supports and strictly distinguishes:
 ## 5. UI/UX Guidelines
 
 ### 5.1 Visual Language ("Premium Utility")
-*   **Palette:** Monochrome. Color is used *only* for status (Green = Verified, Red = Error) or primary actions.
+*   **Palette:** STRICT MONOCHROME.
+    *   **Primary:** Black (`#000000`) or Gray-900 (`#111827`).
+    *   **Surface:** White (`#ffffff`) or Gray-50 (`#fafafa`).
+    *   **Accents:** Avoid blue/purple. Use Grayscale or semantic colors (Green/Red) *only* for status.
 *   **Structure:** Layouts are defined by the Data Schema. If a field exists in `documentSchemas.ts`, it automatically appears in the UI.
+*   **Iconography:** Use specific industry metaphors for navigation:
+    *   **NOSTROY**: `ApartmentBuildingIcon` (High-rise construction focus).
+    *   **NOPRIZ**: `CitySkylineIcon` (Urban planning focus).
 
 ### 5.2 Kinetic Motion & Animation
 *   **Physics-Based Easing:** All interactive transitions **MUST** use `cubic-bezier(0.23, 1, 0.32, 1)`.
 *   **Staggered Entry:** Lists and grids must use `animate-enter` with increasing `animation-delay`.
+
+### 5.3 Layout Constants (Responsive)
+These values are hardcoded to ensure alignment between the fixed Header, Sidebar, and Brand Assets.
+
+| Component | Height/Position | Class | Notes |
+| :--- | :--- | :--- | :--- |
+| **Header** | 80px | `h-20` | Fixed height. |
+| **Logo** | 44px | `h-11` | Scaled to match `h-20` header (~30% reduction from 2x). |
+| **Sidebar** | Top 80px | `top-20` | Must align exactly with the bottom of the Header. |
 
 ---
 
@@ -124,3 +139,4 @@ The system currently supports and strictly distinguishes:
 *   ❌ **Hardcoded Forms:** Do not manually write `<input>` for document fields. Update `configs/documentSchemas.ts` instead.
 *   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson` from `utils/responseParser.ts`.
 *   ❌ **Raw `Error` throwing:** Always wrap errors in `AppError`.
+*   ❌ **Arbitrary Colors:** Do not use `blue-500`, `indigo-600`, etc. Stick to `gray-*` or `black`.

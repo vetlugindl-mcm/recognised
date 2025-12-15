@@ -221,7 +221,8 @@ export const TemplatesView: React.FC = () => {
                   <div key={template.id} className="glass-panel rounded-2xl p-5 hover:shadow-lg transition-all duration-300 group flex flex-col">
                       <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center border border-blue-100">
+                              {/* Changed to Grayscale/Black for Premium Utility */}
+                              <div className="w-10 h-10 bg-gray-100 text-gray-900 rounded-lg flex items-center justify-center border border-gray-200">
                                   <DocumentIcon className="w-5 h-5" />
                               </div>
                               <div>

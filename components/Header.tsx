@@ -8,10 +8,10 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 flex items-center justify-between px-4 md:px-6 z-50 transition-all duration-300 supports-[backdrop-filter]:bg-white/70">
+    <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 flex items-center justify-between px-4 md:px-6 z-50 transition-all duration-300 supports-[backdrop-filter]:bg-white/70">
       
       {/* Left: Brand & Mobile Menu */}
-      <div className="flex items-center gap-4 md:gap-8">
+      <div className="flex items-center gap-3 md:gap-6">
         {/* Mobile Menu Trigger */}
         <button 
             onClick={onMenuClick}
@@ -20,8 +20,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             <Bars3Icon className="w-6 h-6" />
         </button>
 
-        <div className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity duration-200 scale-90 origin-left">
-            <McmLogo />
+        {/* Logo Container - Responsive Sizing */}
+        <div className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity duration-200">
+            {/* Reduced from h-16 to h-11 (~30% smaller) */}
+            <McmLogo className="h-11 w-auto text-gray-900" />
         </div>
       </div>
 

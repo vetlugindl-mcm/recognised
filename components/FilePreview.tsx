@@ -66,10 +66,10 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, className }) => 
         );
     }
 
-    // 3. Word/Other Render
+    // 3. Word/Other Render - Updated to Monochrome
     if (file.type.includes('word') || file.type.includes('doc')) {
         return (
-             <div className={`${containerClasses} text-blue-400 bg-blue-50`}>
+             <div className={`${containerClasses} text-gray-900 bg-gray-100`}>
                 <DocumentIcon className="w-5 h-5" />
             </div>
         );

@@ -106,7 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, activeView, onNavig
             flex flex-col py-6 px-4 z-40 bg-[#fafafa] md:bg-transparent
             transition-transform duration-300 ease-out
             fixed left-0 w-64 border-r border-transparent
-            top-16 bottom-0 md:relative md:top-0 md:h-full md:translate-x-0
+            top-20 bottom-0 md:relative md:top-0 md:h-full md:translate-x-0
             ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:shadow-none'}
             ${className || ''}
         `}>

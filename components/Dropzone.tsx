@@ -87,7 +87,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
         ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''}
         ${isDragging 
-            ? 'bg-blue-50/60 scale-[1.02] shadow-2xl shadow-blue-900/10' 
+            ? 'bg-gray-100/80 scale-[1.02] shadow-2xl shadow-black/5' 
             : 'bg-white hover:bg-gray-50 hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1'
         }
       `}
@@ -131,7 +131,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
            <CloudArrowUpIcon className={`w-8 h-8 transition-all duration-500 ${isDragging ? 'scale-110' : ''}`} />
            
            {/* Success Badge hint */}
-           <div className={`absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white transition-all duration-500 ease-out ${isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}></div>
+           <div className={`absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full border-2 border-white transition-all duration-500 ease-out ${isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}></div>
         </div>
         
         {/* Typography */}
