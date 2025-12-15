@@ -5,6 +5,7 @@ import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { UnifiedProfileForm } from './UnifiedProfileForm';
 import { analyzeFile } from '../services/gemini';
 import { PdfService } from '../services/pdfService';
+import { StorageService } from '../services/storageService';
 import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
 import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon, LoaderIcon } from './icons';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -15,7 +16,6 @@ interface DocumentScannerProps {
     onResultsChange: (results: AnalysisItem[] | ((prev: AnalysisItem[]) => AnalysisItem[])) => void;
 }
 
-// Icon Wrapper for Button
 const BtnIconWrapper = ({ active, children }: { active: boolean, children: React.ReactNode }) => (
     <div className={`
         absolute inset-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
@@ -28,11 +28,70 @@ const BtnIconWrapper = ({ active, children }: { active: boolean, children: React
 export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onResultsChange }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
+  const [isHydrating, setIsHydrating] = useState(true);
 
   // Computed Profile
   const userProfile = useUserProfile(results);
 
-  // Resource Cleanup: Revoke Object URLs when files change or component unmounts
+  // --- HYDRATION: Restore files from IndexedDB based on Results IDs ---
+  useEffect(() => {
+    const hydrateFiles = async () => {
+        if (results.length === 0) {
+            setIsHydrating(false);
+            return;
+        }
+
+        // Only try to load files that we don't already have in state
+        const existingIds = new Set(files.map(f => f.id));
+        const missingItems = results.filter(r => !existingIds.has(r.fileId));
+
+        if (missingItems.length === 0) {
+            setIsHydrating(false);
+            return;
+        }
+
+        const restoredFiles: UploadedFile[] = [];
+
+        for (const item of missingItems) {
+            const fileBlob = await StorageService.getFile(item.fileId);
+            if (fileBlob) {
+                // Determine preview
+                let previewUrl: string | undefined = undefined;
+                
+                if (fileBlob.type.startsWith('image/')) {
+                    previewUrl = URL.createObjectURL(fileBlob);
+                } else if (fileBlob.type === 'application/pdf') {
+                    // Async PDF thumb generation
+                    PdfService.generateThumbnail(fileBlob).then(url => {
+                        if (url) {
+                            setFiles(prev => prev.map(f => f.id === item.fileId ? { ...f, previewUrl: url } : f));
+                        }
+                    });
+                }
+
+                restoredFiles.push({
+                    id: item.fileId,
+                    file: fileBlob,
+                    previewUrl
+                });
+            } else {
+                // If file is missing in IDB but exists in Metadata (rare sync error), remove from metadata
+                console.warn(`File blob missing for ID: ${item.fileId}. Cleaning up metadata.`);
+                onResultsChange(prev => prev.filter(p => p.fileId !== item.fileId));
+            }
+        }
+
+        if (restoredFiles.length > 0) {
+            setFiles(prev => [...prev, ...restoredFiles]);
+        }
+        setIsHydrating(false);
+    };
+
+    hydrateFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]); // Dependency on results ensures we try to load when App passes them
+
+  // --- CLEANUP: Revoke Object URLs ---
   useEffect(() => {
     return () => {
       files.forEach(file => {
@@ -43,31 +102,37 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
     };
   }, [files]);
 
-  const handleFilesAdded = useCallback((newFiles: File[]) => {
-    // 1. Optimistic UI update: Add files immediately
-    const uploadedFiles: UploadedFile[] = newFiles.map((file) => ({
-      file,
-      id: crypto.randomUUID(), // Modern UUID generation
-      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-    }));
+  const handleFilesAdded = useCallback(async (newFiles: File[]) => {
+    const newUploadedFiles: UploadedFile[] = [];
 
-    setFiles((prev) => [...prev, ...uploadedFiles]);
-    setAnalysisState('idle'); 
+    // Process each new file
+    for (const file of newFiles) {
+        const id = crypto.randomUUID();
+        
+        // 1. Save to IndexedDB immediately
+        await StorageService.saveFile(id, file);
 
-    // 2. Process PDFs asynchronously using the service
-    uploadedFiles.forEach(async (uFile) => {
-        if (uFile.file.type === 'application/pdf') {
-            const thumbUrl = await PdfService.generateThumbnail(uFile.file);
-            if (thumbUrl) {
-                setFiles(prev => prev.map(f => 
-                    f.id === uFile.id ? { ...f, previewUrl: thumbUrl } : f
-                ));
-            }
+        // 2. Create UI Object
+        const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+        
+        newUploadedFiles.push({ file, id, previewUrl });
+
+        // 3. Trigger PDF generation async
+        if (file.type === 'application/pdf') {
+             PdfService.generateThumbnail(file).then(thumbUrl => {
+                if (thumbUrl) {
+                    setFiles(prev => prev.map(f => f.id === id ? { ...f, previewUrl: thumbUrl } : f));
+                }
+             });
         }
-    });
+    }
+
+    setFiles((prev) => [...prev, ...newUploadedFiles]);
+    setAnalysisState('idle'); 
   }, []);
 
-  const handleRemoveFile = useCallback((id: string) => {
+  const handleRemoveFile = useCallback(async (id: string) => {
+    // 1. Update UI State
     setFiles((prev) => {
       const fileToRemove = prev.find((f) => f.id === id);
       if (fileToRemove?.previewUrl && fileToRemove.previewUrl.startsWith('blob:')) {
@@ -75,7 +140,13 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
       }
       return prev.filter((f) => f.id !== id);
     });
+
+    // 2. Remove result from parent state
     onResultsChange(prev => prev.filter(r => r.fileId !== id));
+
+    // 3. Remove from Storage
+    await StorageService.deleteFile(id);
+
   }, [onResultsChange]);
 
   const handleDataUpdate = useCallback((fileId: string, newData: AnalyzedDocument) => {
@@ -109,8 +180,6 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
 
         } catch (error: unknown) {
           console.error(`Error analyzing ${fileObj.file.name}:`, error);
-          
-          // Use the structured public message if available, otherwise generic
           const errorMessage = error instanceof AppError 
             ? error.publicMessage 
             : "Не удалось обработать файл";
@@ -128,8 +197,6 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
       
       onResultsChange(prevResults => {
           const combined = [...prevResults, ...newResults];
-          // Sort priorities: Passport (0) -> Qualification (1) -> Diploma (2) -> Other
-          // TODO: Move sorting logic to a config in Phase 2
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
               if (item.data?.type === 'passport') return 0;
@@ -149,7 +216,12 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // Clear all files from storage and state
+    const ids = files.map(f => f.id);
+    for (const id of ids) {
+        await StorageService.deleteFile(id);
+    }
     setFiles([]);
     setAnalysisState('idle');
     onResultsChange([]);
@@ -257,7 +329,7 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
                    <div className="h-px bg-gray-200 flex-1"></div>
               </div>
 
-              {isAnalyzing ? (
+              {isAnalyzing || isHydrating ? (
                  <AnalysisSkeleton />
               ) : (
                  <UnifiedProfileForm profile={userProfile} onUpdate={handleDataUpdate} />

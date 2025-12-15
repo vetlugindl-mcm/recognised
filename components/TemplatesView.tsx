@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Dropzone } from './Dropzone';
 import { DocumentTemplate, UserProfile } from '../types';
 import { DocGeneratorService } from '../services/docGenerator';
+import { StorageService } from '../services/storageService';
 import { 
   DocumentIcon, 
   TagIcon, 
@@ -27,7 +28,6 @@ interface VariableGroup {
   fields: { label: string; variable: string }[];
 }
 
-// CHANGED: Use single brackets for variables
 const VARIABLES_DATA: VariableGroup[] = [
   {
     category: 'Паспорт РФ',
@@ -186,32 +186,41 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ templates, onTempl
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
-  const handleFilesAdded = (files: File[]) => {
-    const newTemplates: DocumentTemplate[] = files.map(file => {
-      // Mock variable detection
-      const mockVars = [];
-      // CHANGED: Mock variables now use single brackets in visualization
-      if (file.name.toLowerCase().includes('dogovor') || file.name.toLowerCase().includes('contract')) {
-        mockVars.push('passport_last_name', 'passport_series_number');
-      } else {
-        mockVars.push('passport_last_name', 'snils');
-      }
+  const handleFilesAdded = async (files: File[]) => {
+    const newTemplates: DocumentTemplate[] = [];
 
-      return {
-        id: Math.random().toString(36).substring(7),
-        file,
-        name: file.name,
-        uploadDate: new Date(),
-        variables: mockVars,
-        size: file.size
-      };
-    });
+    for (const file of files) {
+        const id = Math.random().toString(36).substring(7);
+        
+        // Save to IndexedDB
+        await StorageService.saveFile(id, file);
+
+        // Mock variable detection (simplified for this stage)
+        const mockVars = [];
+        if (file.name.toLowerCase().includes('dogovor') || file.name.toLowerCase().includes('contract')) {
+            mockVars.push('passport_last_name', 'passport_series_number');
+        } else {
+            mockVars.push('passport_last_name', 'snils');
+        }
+
+        newTemplates.push({
+            id,
+            file,
+            name: file.name,
+            uploadDate: new Date(),
+            variables: mockVars,
+            size: file.size
+        });
+    }
 
     onTemplatesChange(prev => [...prev, ...newTemplates]);
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
+    // Remove from State
     onTemplatesChange(prev => prev.filter(t => t.id !== id));
+    // Remove from IndexedDB
+    await StorageService.deleteFile(id);
   };
 
   const handleGenerate = async (template: DocumentTemplate) => {
