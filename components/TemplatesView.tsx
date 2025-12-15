@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Dropzone } from './Dropzone';
-import { DocumentTemplate, UserProfile } from '../types';
+import { DocumentTemplate } from '../types';
 import { DocGeneratorService } from '../services/docGenerator';
 import { StorageService } from '../services/storageService';
+import { useAppContext } from '../context/AppContext';
+import { useUserProfile } from '../hooks/useUserProfile';
 import { 
   DocumentIcon, 
   TagIcon, 
@@ -16,12 +18,6 @@ import {
   RocketLaunchIcon,
   LoaderIcon
 } from './icons';
-
-interface TemplatesViewProps {
-    templates: DocumentTemplate[];
-    onTemplatesChange: (templates: DocumentTemplate[] | ((prev: DocumentTemplate[]) => DocumentTemplate[])) => void;
-    userProfile: UserProfile;
-}
 
 interface VariableGroup {
   category: string;
@@ -185,7 +181,10 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   );
 };
 
-export const TemplatesView: React.FC<TemplatesViewProps> = ({ templates, onTemplatesChange, userProfile }) => {
+export const TemplatesView: React.FC = () => {
+  const { templates, setTemplates, analysisResults } = useAppContext();
+  const userProfile = useUserProfile(analysisResults);
+  
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
@@ -198,7 +197,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ templates, onTempl
         // Save to IndexedDB
         await StorageService.saveFile(id, file);
 
-        // Mock variable detection (simplified for this stage)
+        // Mock variable detection
         const mockVars = [];
         if (file.name.toLowerCase().includes('dogovor') || file.name.toLowerCase().includes('contract')) {
             mockVars.push('passport_last_name', 'passport_series_number');
@@ -216,12 +215,12 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ templates, onTempl
         });
     }
 
-    onTemplatesChange(prev => [...prev, ...newTemplates]);
+    setTemplates(prev => [...prev, ...newTemplates]);
   };
 
   const handleRemove = async (id: string) => {
     // Remove from State
-    onTemplatesChange(prev => prev.filter(t => t.id !== id));
+    setTemplates(prev => prev.filter(t => t.id !== id));
     // Remove from IndexedDB
     await StorageService.deleteFile(id);
   };

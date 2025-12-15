@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
-import { UserProfile, ComplianceReport, ValidationRuleResult } from '../types';
+import { ComplianceReport, ValidationRuleResult } from '../types';
 import { calculateCompliance } from '../utils/businessRules';
 import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon, BuildingOfficeIcon, SparklesIcon } from './icons';
-
-interface NostroyViewProps {
-  userProfile: UserProfile;
-}
+import { useAppContext } from '../context/AppContext';
+import { useUserProfile } from '../hooks/useUserProfile';
 
 const ScoreGauge = ({ score }: { score: number }) => {
   // SVG Circle calculations
@@ -74,7 +72,10 @@ const CheckItem = ({ check }: { check: ValidationRuleResult }) => {
     );
 };
 
-export const NostroyView: React.FC<NostroyViewProps> = ({ userProfile }) => {
+export const NostroyView: React.FC = () => {
+  const { analysisResults } = useAppContext();
+  const userProfile = useUserProfile(analysisResults);
+  
   const report: ComplianceReport = useMemo(() => calculateCompliance(userProfile), [userProfile]);
 
   return (

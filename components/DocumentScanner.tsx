@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Dropzone } from './Dropzone';
 import { FileList } from './FileList';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
@@ -10,11 +10,8 @@ import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../
 import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon, LoaderIcon } from './icons';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { AppError } from '../utils/errors';
-
-interface DocumentScannerProps {
-    results: AnalysisItem[];
-    onResultsChange: (results: AnalysisItem[] | ((prev: AnalysisItem[]) => AnalysisItem[])) => void;
-}
+import { useAppContext } from '../context/AppContext';
+import { useFileHydration } from '../hooks/useFileHydration';
 
 const BtnIconWrapper = ({ active, children }: { active: boolean, children: React.ReactNode }) => (
     <div className={`
@@ -25,82 +22,13 @@ const BtnIconWrapper = ({ active, children }: { active: boolean, children: React
     </div>
 );
 
-export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onResultsChange }) => {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
+export const DocumentScanner: React.FC = () => {
+  const { analysisResults, setAnalysisResults, updateAnalysisResult, removeAnalysisResult } = useAppContext();
+  const { files, setFiles, isHydrating } = useFileHydration(analysisResults);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
-  const [isHydrating, setIsHydrating] = useState(true);
 
-  // Computed Profile
-  const userProfile = useUserProfile(results);
-
-  // --- HYDRATION: Restore files from IndexedDB based on Results IDs ---
-  useEffect(() => {
-    const hydrateFiles = async () => {
-        if (results.length === 0) {
-            setIsHydrating(false);
-            return;
-        }
-
-        // Only try to load files that we don't already have in state
-        const existingIds = new Set(files.map(f => f.id));
-        const missingItems = results.filter(r => !existingIds.has(r.fileId));
-
-        if (missingItems.length === 0) {
-            setIsHydrating(false);
-            return;
-        }
-
-        const restoredFiles: UploadedFile[] = [];
-
-        for (const item of missingItems) {
-            const fileBlob = await StorageService.getFile(item.fileId);
-            if (fileBlob) {
-                // Determine preview
-                let previewUrl: string | undefined = undefined;
-                
-                if (fileBlob.type.startsWith('image/')) {
-                    previewUrl = URL.createObjectURL(fileBlob);
-                } else if (fileBlob.type === 'application/pdf') {
-                    // Async PDF thumb generation
-                    PdfService.generateThumbnail(fileBlob).then(url => {
-                        if (url) {
-                            setFiles(prev => prev.map(f => f.id === item.fileId ? { ...f, previewUrl: url } : f));
-                        }
-                    });
-                }
-
-                restoredFiles.push({
-                    id: item.fileId,
-                    file: fileBlob,
-                    previewUrl
-                });
-            } else {
-                // If file is missing in IDB but exists in Metadata (rare sync error), remove from metadata
-                console.warn(`File blob missing for ID: ${item.fileId}. Cleaning up metadata.`);
-                onResultsChange(prev => prev.filter(p => p.fileId !== item.fileId));
-            }
-        }
-
-        if (restoredFiles.length > 0) {
-            setFiles(prev => [...prev, ...restoredFiles]);
-        }
-        setIsHydrating(false);
-    };
-
-    hydrateFiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results]); // Dependency on results ensures we try to load when App passes them
-
-  // --- CLEANUP: Revoke Object URLs ---
-  useEffect(() => {
-    return () => {
-      files.forEach(file => {
-        if (file.previewUrl && file.previewUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(file.previewUrl);
-        }
-      });
-    };
-  }, [files]);
+  // Computed Profile from Global State
+  const userProfile = useUserProfile(analysisResults);
 
   const handleFilesAdded = useCallback(async (newFiles: File[]) => {
     const newUploadedFiles: UploadedFile[] = [];
@@ -129,10 +57,10 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
 
     setFiles((prev) => [...prev, ...newUploadedFiles]);
     setAnalysisState('idle'); 
-  }, []);
+  }, [setFiles]);
 
   const handleRemoveFile = useCallback(async (id: string) => {
-    // 1. Update UI State
+    // 1. Update UI State (Files)
     setFiles((prev) => {
       const fileToRemove = prev.find((f) => f.id === id);
       if (fileToRemove?.previewUrl && fileToRemove.previewUrl.startsWith('blob:')) {
@@ -141,24 +69,24 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
       return prev.filter((f) => f.id !== id);
     });
 
-    // 2. Remove result from parent state
-    onResultsChange(prev => prev.filter(r => r.fileId !== id));
+    // 2. Remove result from Global Context
+    removeAnalysisResult(id);
 
     // 3. Remove from Storage
     await StorageService.deleteFile(id);
 
-  }, [onResultsChange]);
+  }, [setFiles, removeAnalysisResult]);
 
   const handleDataUpdate = useCallback((fileId: string, newData: AnalyzedDocument) => {
-    onResultsChange(prevResults => 
-      prevResults.map(item => 
-        item.fileId === fileId ? { ...item, data: newData } : item
-      )
-    );
-  }, [onResultsChange]);
+      // Find original item to preserve meta
+      const original = analysisResults.find(r => r.fileId === fileId);
+      if (original) {
+          updateAnalysisResult(fileId, { ...original, data: newData });
+      }
+  }, [analysisResults, updateAnalysisResult]);
 
   const handleAnalyze = async () => {
-    const unprocessedFiles = files.filter(f => !results.some(r => r.fileId === f.id));
+    const unprocessedFiles = files.filter(f => !analysisResults.some(r => r.fileId === f.id));
 
     if (unprocessedFiles.length === 0) {
       alert(files.length === 0 ? "Пожалуйста, загрузите файлы." : "Все загруженные файлы уже обработаны.");
@@ -195,7 +123,8 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
 
       const newResults = await Promise.all(promises);
       
-      onResultsChange(prevResults => {
+      // Update Context with sorting logic
+      setAnalysisResults(prevResults => {
           const combined = [...prevResults, ...newResults];
           return combined.sort((a, b) => {
             const getPriority = (item: AnalysisItem) => {
@@ -217,20 +146,19 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
   };
 
   const handleReset = async () => {
-    // Clear all files from storage and state
     const ids = files.map(f => f.id);
     for (const id of ids) {
         await StorageService.deleteFile(id);
     }
     setFiles([]);
     setAnalysisState('idle');
-    onResultsChange([]);
+    setAnalysisResults([]);
   };
 
-  const unprocessedCount = files.length - results.length;
+  const unprocessedCount = files.length - analysisResults.length;
   const isAnalyzing = analysisState === 'analyzing';
-  const hasResults = results.length > 0;
-  const isComplete = unprocessedCount === 0 && results.length > 0;
+  const hasResults = analysisResults.length > 0;
+  const isComplete = unprocessedCount === 0 && analysisResults.length > 0;
 
   return (
     <div className="flex flex-col gap-8 max-w-5xl mx-auto pb-10">
@@ -267,7 +195,7 @@ export const DocumentScanner: React.FC<DocumentScannerProps> = ({ results, onRes
                                     files={files} 
                                     onRemove={handleRemoveFile} 
                                     disabled={isAnalyzing}
-                                    processedIds={results.map(r => r.fileId)}
+                                    analysisResults={analysisResults}
                                     isAnalyzing={isAnalyzing}
                                 />
                              </div>

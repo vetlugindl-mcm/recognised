@@ -1,62 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from './components/DashboardLayout';
 import { DocumentScanner } from './components/DocumentScanner';
 import { TemplatesView } from './components/TemplatesView';
 import { NostroyView } from './components/NostroyView';
-import { ViewState, AnalysisItem, DocumentTemplate } from './types';
-import { useUserProfile } from './hooks/useUserProfile';
-import { StorageService } from './services/storageService';
+import { ViewState } from './types';
+import { useAppContext } from './context/AppContext';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('scanner');
-  const [isLoaded, setIsLoaded] = useState(false);
-  
-  // --- Global State ---
-  const [analysisResults, setAnalysisResults] = useState<AnalysisItem[]>([]);
-  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
-
-  // --- HYDRATION (Load from Storage) ---
-  useEffect(() => {
-    const hydrate = async () => {
-      // 1. Load Analysis Metadata (Sync)
-      const savedResults = StorageService.loadAnalysisResults();
-      setAnalysisResults(savedResults);
-
-      // 2. Load Templates Metadata & Reconstruct Files (Async)
-      const templatesMeta = StorageService.loadTemplatesMeta();
-      const loadedTemplates: DocumentTemplate[] = [];
-
-      for (const meta of templatesMeta) {
-        const file = await StorageService.getFile(meta.id);
-        if (file) {
-          loadedTemplates.push({ ...meta, file });
-        }
-      }
-      setTemplates(loadedTemplates);
-      setIsLoaded(true);
-    };
-
-    hydrate();
-  }, []);
-
-  // --- PERSISTENCE (Save on Change) ---
-  
-  // Save Analysis Results
-  useEffect(() => {
-    if (isLoaded) {
-        StorageService.saveAnalysisResults(analysisResults);
-    }
-  }, [analysisResults, isLoaded]);
-
-  // Save Templates Meta (Files are saved individually by the component)
-  useEffect(() => {
-    if (isLoaded) {
-        StorageService.saveTemplatesMeta(templates);
-    }
-  }, [templates, isLoaded]);
-
-  // Computed Profile
-  const userProfile = useUserProfile(analysisResults);
+  const { isLoaded } = useAppContext();
 
   if (!isLoaded) {
       return (
@@ -69,22 +21,15 @@ const App: React.FC = () => {
   return (
     <DashboardLayout activeView={currentView} onNavigate={setCurrentView}>
         {currentView === 'templates' && (
-           <TemplatesView 
-              templates={templates} 
-              onTemplatesChange={setTemplates}
-              userProfile={userProfile}
-           />
+           <TemplatesView />
         )}
         
         {currentView === 'nostroy' && (
-            <NostroyView userProfile={userProfile} />
+            <NostroyView />
         )}
 
         {currentView === 'scanner' && (
-           <DocumentScanner 
-              results={analysisResults}
-              onResultsChange={setAnalysisResults}
-           />
+           <DocumentScanner />
         )}
     </DashboardLayout>
   );

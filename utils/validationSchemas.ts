@@ -5,6 +5,8 @@ const safeString = z.string().nullable().optional().transform(val => val ?? "");
 // Helper: Allow nulls for specific nullable fields in our types
 const nullableString = z.string().nullable().optional().transform(val => val ?? null);
 
+const isHandwrittenSchema = z.boolean().optional().nullable().transform(val => !!val);
+
 export const PassportSchema = z.object({
   type: z.literal('passport'),
   lastName: safeString,
@@ -24,6 +26,7 @@ export const PassportSchema = z.object({
   registrationDate: nullableString,
   
   snils: nullableString,
+  isHandwritten: isHandwrittenSchema,
 });
 
 export const DiplomaSchema = z.object({
@@ -39,6 +42,7 @@ export const DiplomaSchema = z.object({
   specialty: safeString,
   qualification: safeString,
   dateIssued: safeString,
+  isHandwritten: isHandwrittenSchema,
 });
 
 export const QualificationSchema = z.object({
@@ -51,6 +55,7 @@ export const QualificationSchema = z.object({
   expirationDate: safeString,
   assessmentCenterName: safeString,
   assessmentCenterRegNumber: safeString,
+  isHandwritten: isHandwrittenSchema,
 });
 
 export const SnilsDocSchema = z.object({
@@ -59,12 +64,14 @@ export const SnilsDocSchema = z.object({
   firstName: safeString,
   middleName: safeString,
   snils: safeString, // The validation is loose here, business rules check format
-  dateIssued: nullableString
+  dateIssued: nullableString,
+  isHandwritten: isHandwrittenSchema,
 });
 
 export const RawDataSchema = z.object({
   type: z.literal('raw'),
   rawText: z.string(),
+  isHandwritten: isHandwrittenSchema,
 });
 
 // Union Schema for all document types

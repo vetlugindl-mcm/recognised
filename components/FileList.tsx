@@ -1,12 +1,12 @@
 import React from 'react';
-import { UploadedFile } from '../types';
-import { XMarkIcon, AcademicCapIcon, PhotoIcon, CheckIcon, ClockIcon, LoaderIcon } from './icons';
+import { UploadedFile, AnalysisItem } from '../types';
+import { XMarkIcon, AcademicCapIcon, PhotoIcon, CheckIcon, ClockIcon, LoaderIcon, ExclamationCircleIcon } from './icons';
 
 interface FileListProps {
   files: UploadedFile[];
   onRemove: (id: string) => void;
   disabled?: boolean;
-  processedIds?: string[];
+  analysisResults?: AnalysisItem[];
   isAnalyzing?: boolean;
 }
 
@@ -21,7 +21,7 @@ const StatusIconWrapper = ({ active, children, className = "", type = "default" 
     </div>
 );
 
-export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, processedIds = [], isAnalyzing = false }) => {
+export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, analysisResults = [], isAnalyzing = false }) => {
   
   const getFileStyle = (file: File) => {
     const type = file.type;
@@ -55,9 +55,14 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
         {files.map((fileObj, index) => {
           const style = getFileStyle(fileObj.file);
           const IconComponent = style.Icon;
-          const isProcessed = processedIds.includes(fileObj.id);
+          
+          const result = analysisResults.find(r => r.fileId === fileObj.id);
+          const isProcessed = !!result;
           const showSpinner = isAnalyzing && !isProcessed;
           const isIdle = !isProcessed && !showSpinner;
+          
+          // Check for handwriting flag
+          const isHandwritten = result?.data?.isHandwritten === true;
 
           return (
             <div
@@ -90,23 +95,33 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, p
               </div>
 
               {/* Info */}
-              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                 <div className="flex items-center gap-2">
-                   <p className="text-sm font-medium text-gray-900 truncate tracking-normal leading-none" title={fileObj.file.name}>
+                   {/* Removed leading-none to prevent clipping of descenders (д, р, у, ф) */}
+                   <p className="text-sm font-medium text-gray-900 truncate tracking-normal" title={fileObj.file.name}>
                     {fileObj.file.name}
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-2 text-xs text-gray-500 font-normal leading-none">
-                  <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                <div className="flex items-center gap-2 text-xs text-gray-500 font-normal">
+                  <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 leading-none">
                     {style.label}
                   </span>
                   <span className="opacity-80">{(fileObj.file.size / 1024 / 1024).toFixed(2)} MB</span>
                 </div>
               </div>
 
+              {/* HANDWRITTEN WARNING BADGE */}
+              {isHandwritten && (
+                  <div className="flex shrink-0 items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded-lg mr-2 animate-enter whitespace-nowrap">
+                      <ExclamationCircleIcon className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-[10px] font-bold text-red-600 leading-none hidden sm:inline">Рукописный текст</span>
+                      <span className="text-[10px] font-bold text-red-600 leading-none sm:hidden">!</span>
+                  </div>
+              )}
+
               {/* Action Area: Status Icons OR Remove Button */}
-               <div className="relative w-8 h-8 flex items-center justify-center ml-auto">
+               <div className="relative w-8 h-8 flex items-center justify-center ml-auto shrink-0">
                     
                     {/* Layer 1: Status Icons (Check, Spinner, Clock) */}
                     <div className={`

@@ -22,6 +22,7 @@ export interface DiplomaData {
   specialty: string;
   qualification: string;
   dateIssued: string;
+  isHandwritten?: boolean;
 }
 
 export interface PassportData {
@@ -44,6 +45,7 @@ export interface PassportData {
   registrationDate: string | null;
   
   snils: string | null;
+  isHandwritten?: boolean;
 }
 
 // NEW: Standalone SNILS Document
@@ -54,6 +56,7 @@ export interface SnilsData {
   middleName: string;
   snils: string; // The main value we need
   dateIssued?: string;
+  isHandwritten?: boolean;
 }
 
 export interface QualificationData {
@@ -66,11 +69,13 @@ export interface QualificationData {
   expirationDate: string;
   assessmentCenterName: string; // п. 4.5
   assessmentCenterRegNumber: string; // п. 4.6
+  isHandwritten?: boolean;
 }
 
 export interface RawData {
   type: 'raw';
   rawText: string;
+  isHandwritten?: boolean;
 }
 
 export type AnalyzedDocument = DiplomaData | PassportData | QualificationData | SnilsData | RawData;

@@ -14,6 +14,13 @@ export const GEMINI_RESPONSE_SCHEMA: Schema = {
       enum: ["passport", "diploma", "qualification", "snils"],
       description: "The type of the document identified."
     },
+
+    // New Flag for Handwriting Detection
+    isHandwritten: {
+      type: Type.BOOLEAN,
+      description: "True if the document contains handwritten text or handwritten stamps (especially registration addresses). Signatures do NOT count.",
+      nullable: true
+    },
     
     // --- Passport Fields ---
     seriesNumber: { type: Type.STRING, description: "Passport Series and Number. Format: XX XX XXXXXX", nullable: true },
