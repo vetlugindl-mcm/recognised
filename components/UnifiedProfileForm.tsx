@@ -10,10 +10,15 @@ interface UnifiedProfileFormProps {
 }
 
 const EmptySection = ({ text }: { text: string }) => (
-  <div className="p-6 border-2 border-dashed border-gray-100 rounded-xl flex items-center justify-center bg-gray-50/50">
-    <div className="flex items-center gap-2 text-gray-400">
-      <ExclamationCircleIcon className="w-5 h-5" />
-      <span className="text-sm font-medium">{text}</span>
+  <div className="group relative overflow-hidden p-8 border border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center bg-gray-50/30 transition-all duration-500 hover:bg-gray-50 hover:border-gray-400">
+    {/* Engineering Grid Pattern (Consistent with Dropzone) */}
+    <div className="absolute inset-0 bg-grid opacity-[0.4] pointer-events-none" />
+    
+    <div className="relative z-10 flex flex-col items-center gap-3 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-1">
+      <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-500">
+         <ExclamationCircleIcon className="w-5 h-5 text-gray-400 group-hover:text-gray-900 transition-colors" />
+      </div>
+      <span className="text-sm font-medium text-gray-500 group-hover:text-gray-900 transition-colors">{text}</span>
     </div>
   </div>
 );
@@ -55,6 +60,7 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
             <h2 className="text-lg font-bold tracking-tight text-white leading-snug">
               {fullName !== 'Неизвестный кандидат' ? fullName : <span className="opacity-50 font-normal">ФИО не определено</span>}
             </h2>
+            <p className="text-xs text-gray-400 mt-0.5 font-medium tracking-wide uppercase">Единый цифровой профиль</p>
           </div>
         </div>
       </div>
@@ -74,9 +80,9 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
             const isNotFirst = sectionConfig.profileKey !== 'passport';
 
             return (
-                <section key={sectionConfig.profileKey} className="relative">
+                <section key={sectionConfig.profileKey} className="relative animate-enter">
                     {/* Visual separation for sections */}
-                    {isNotFirst && <div className="absolute -top-6 left-0 right-0 border-t border-gray-100"></div>}
+                    {isNotFirst && <div className="absolute -top-6 left-0 right-0 border-t border-dashed border-gray-100"></div>}
 
                     {/* Section Title (Optional, schema doesn't have a main title used here, we use Schema Sections) */}
                     

@@ -1,5 +1,5 @@
 
-# Project Manifesto & Engineering Standards (v2025.12.7)
+# Project Manifesto & Engineering Standards (v2025.12.8)
 
 > **Context:** December 2025.
 > **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic, schema-driven UI, and kinetic interactions.
@@ -31,26 +31,21 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 /
 ├── configs/             # [NEW] Single Source of Truth
 │   ├── aiSchema.ts      # Native GenAI Output Schema (Strict JSON)
-│   └── documentSchemas.ts # UI & Data definitions for documents
+│   ├── documentSchemas.ts # UI & Data definitions for documents
+│   └── templateVariables.ts # Docx Template mappings
 ├── components/          # UI Components
 │   ├── common/          # Reusable Atoms (FormFields, etc.)
 │   ├── icons/           # SVG Icon Registry (Modular files)
-│   ├── AnalysisResult   # Schema-driven visualization
 │   └── ...
 ├── services/            # API & Logic Isolation Layer
 │   ├── gemini.ts        # Main AI Orchestrator
-│   ├── mockService.ts   # Mock Strategy
-│   ├── pdfService.ts    # PDF Logic Isolation
-│   ├── promptService.ts # Extraction Logic (OCR & Normalization)
+│   ├── docGenerator.ts  # Word Generation
 │   └── storageService.ts# Persistence (Hybrid Strategy)
 ├── utils/               # Pure Functions & Helpers
-│   ├── businessRules.ts # [NEW] Compliance & Validation Logic
-│   ├── errors.ts        # Standardized Error Handling
-│   ├── validationSchemas.ts # Zod Definitions (Runtime Safety)
-│   └── responseParser.ts# LLM Sanitization & Validation
+│   ├── businessRules.ts # Compliance & Validation Logic
+│   └── errors.ts        # Standardized Error Handling
 ├── types.ts             # Centralized Type Definitions (DTOs)
-├── App.tsx              # Router & Global State Holder
-└── index.html           # Entry Point & Importmaps
+└── App.tsx              # Router & Global State Holder
 ```
 
 ---
@@ -60,7 +55,7 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 ### 3.1 Typing & Safety (Critical)
 *   **NO `any`:** The use of `any` is strictly prohibited. Use `unknown` with type guards or generics.
 *   **Zod Integration:** API responses are parsed via `cleanAndParseJson`.
-*   **Error Normalization:** All catch blocks must use `normalizeError` or throw `AppError` to ensure consistent error shapes in the UI.
+*   **Error Normalization:** All catch blocks must use `normalizeError` or throw `AppError`.
 
 ### 3.2 Naming Conventions
 *   **Schemas:** `[Entity]Schema` (e.g., `SnilsDocSchema`, `PassportSchema`).
@@ -70,73 +65,54 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 
 ---
 
-## 4. OCR & Data Extraction Rules (AI Strategy)
-
-We employ specific strategies to handle the complexities of Russian bureaucratic documents.
+## 4. AI & Data Extraction Rules
 
 ### 4.1 Date Normalization
-*   **Problem:** Documents mix digital dates ("13.11.2025") and text dates ("13 ноября 2025 года").
-*   **Rule:** The AI **MUST** normalize all dates to the `DD.MM.YYYY` format during the extraction phase.
-*   **Implementation:** Enforced via System Prompt instructions.
+*   **Rule:** The AI **MUST** normalize all dates to the `DD.MM.YYYY` format.
 
-### 4.2 Spatial Awareness (Headers vs. Body)
-*   **Problem:** Critical IDs (like Qualification Registration Numbers) often appear in the top page header, above the document title.
-*   **Rule:** The OCR extraction instruction must explicitly direct the model to scan the **entire viewport**, including headers and footers, before processing the main body.
-*   **Target:** Specifically for `qualification` (NOK) documents, the `registrationNumber` is prioritized from the top-right or top-center header.
+### 4.2 Spatial Awareness
+*   **Rule:** The OCR instructions must explicitly direct the model to scan the **entire viewport**, prioritizing headers for critical IDs (like NOK Reg Numbers).
 
-### 4.3 Complex Address Parsing
-*   **Problem:** Registration stamps in passports are unstructured text blocks.
-*   **Rule:** Addresses must be split into atomic components: `City`, `Street`, `House`, `Flat`.
-*   **Logic:** The prompt instructs the model to read multi-line stamps aggressively to find "hidden" house/flat numbers on the second or third lines.
-
-### 4.4 Document Classification
-The system currently supports and strictly distinguishes:
-1.  **Passport (`passport`)**: Main identity document. Contains Identity + Registration.
-2.  **SNILS (`snils`)**: Green laminated card. Extracted as a standalone document but merged into the Identity profile.
-3.  **Diploma (`diploma`)**: Education document.
-4.  **Qualification (`qualification`)**: NOK Certificate (Independent Qualification Assessment).
+### 4.3 Handwriting Detection
+*   **Rule:** The model must identify if key fields (Address, Name) are handwritten. This flags the `isHandwritten` boolean, which triggers UI warnings.
 
 ---
 
-## 5. UI/UX Guidelines
+## 5. UI/UX Guidelines ("Premium Utility")
 
-### 5.1 Visual Language ("Premium Utility")
-*   **Palette:** STRICT MONOCHROME.
-    *   **Primary:** Black (`#000000`) or Gray-900 (`#111827`).
-    *   **Surface:** White (`#ffffff`) or Gray-50 (`#fafafa`).
-    *   **Accents:** Avoid blue/purple. Use Grayscale or semantic colors (Green/Red) *only* for status.
-*   **Structure:** Layouts are defined by the Data Schema. If a field exists in `documentSchemas.ts`, it automatically appears in the UI.
-*   **Iconography:** Use specific industry metaphors for navigation:
-    *   **NOSTROY**: `ApartmentBuildingIcon` (High-rise construction focus).
-    *   **NOPRIZ**: `CitySkylineIcon` (Urban planning focus).
+### 5.1 Visual Language: Strict Monochrome
+*   **Palette:**
+    *   **Active/Focus:** `#000000` (Black). Do not use blue/indigo for focus states.
+    *   **Surface:** White, Gray-50, or Transparent Blur.
+    *   **Semantic Colors:** 
+        *   **Red (`text-red-500`):** Strictly for errors and **empty/unrecognized fields**.
+        *   **Green (`text-green-500`):** Strictly for verified success.
+*   **Patterns:** Use `bg-grid` (engineering graph paper style) for empty states, dropzones, and backgrounds to imply technical precision.
 
-### 5.2 Kinetic Motion & Animation
-*   **Physics-Based Easing:** All interactive transitions **MUST** use `cubic-bezier(0.23, 1, 0.32, 1)`.
-*   **Staggered Entry:** Lists and grids must use `animate-enter` with increasing `animation-delay`.
+### 5.2 Kinetic Motion (Physics-Based)
+*   **Easing:** All interactive transitions (hover, drag, modal open) **MUST** use the custom bezier:
+    *   `cubic-bezier(0.23, 1, 0.32, 1)`
+    *   This provides a "heavy", premium feel with a quick snap and slow settle.
+*   **Micro-interactions:** Elements should lift (`-translate-y-1`), scale slightly (`scale-102`), or cast a shadow on hover.
 
-### 5.3 Layout Constants (Responsive)
-These values are hardcoded to ensure alignment between the fixed Header, Sidebar, and Brand Assets.
-
-| Component | Height/Position | Class | Notes |
-| :--- | :--- | :--- | :--- |
-| **Header** | 80px | `h-20` | Fixed height. |
-| **Logo** | 44px | `h-11` | Scaled to match `h-20` header (~30% reduction from 2x). |
-| **Sidebar** | Top 80px | `top-20` | Must align exactly with the bottom of the Header. |
+### 5.3 Validation UI
+*   **Empty Fields:** If a required field is empty/null:
+    *   Text must display "Не распознано" in **Red**.
+    *   Background may have a subtle red tint.
+    *   This ensures the user *cannot* miss a parsing error before generating documents.
 
 ---
 
 ## 6. Persistence Strategy (Hybrid)
 
 1.  **Metadata (Fast):** Analysis results (JSON) and file metadata are stored in `localStorage`.
-2.  **Blobs (Heavy):** Binary files (images, PDFs) are stored in `IndexedDB` (via `idb-keyval`).
-3.  **Hydration:** The app loads metadata first to paint the UI skeleton, then lazily loads blobs from IndexedDB.
+2.  **Blobs (Heavy):** Binary files (images, PDFs) are stored in `IndexedDB`.
+3.  **Hydration:** UI loads instantly from LocalStorage; images hydrate asynchronously.
 
 ---
 
 ## 7. Deprecations (Do Not Use)
 
-*   ❌ **JSON Formatting Prompts:** Do not ask the model to "Format as JSON". Use `responseSchema`.
-*   ❌ **Hardcoded Forms:** Do not manually write `<input>` for document fields. Update `configs/documentSchemas.ts` instead.
-*   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson` from `utils/responseParser.ts`.
-*   ❌ **Raw `Error` throwing:** Always wrap errors in `AppError`.
-*   ❌ **Arbitrary Colors:** Do not use `blue-500`, `indigo-600`, etc. Stick to `gray-*` or `black`.
+*   ❌ **Blue Accents:** Do not use `blue-500` for primary actions. Use Black.
+*   ❌ **Complex Scanners:** No "laser beam" animations. Use clean, kinetic states.
+*   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson`.

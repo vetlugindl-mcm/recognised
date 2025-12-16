@@ -17,6 +17,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
   accept = 'image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -72,9 +73,6 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       }
   }
 
-  // Check if we are using the default subtitle to apply specific styling
-  const isDefaultSubtitle = subtitle === 'Перетащите файлы сюда или нажмите для выбора';
-
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -82,13 +80,18 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={onZoneClick}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       className={`
-        relative group w-full min-h-[260px] rounded-[2rem] cursor-pointer select-none overflow-hidden flex flex-col items-center justify-center
-        transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
-        ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''}
+        relative group w-full min-h-[280px] rounded-2xl cursor-pointer select-none flex flex-col items-center justify-center text-center overflow-hidden
+        transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+        border-2 
+        ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : ''}
         ${isDragging 
-            ? 'bg-gray-100/80 scale-[1.02] shadow-2xl shadow-black/5' 
-            : 'bg-white hover:bg-gray-50 hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1'
+            ? 'bg-white border-black shadow-2xl shadow-black/5 scale-[1.02]' 
+            : isHovering && !disabled
+                ? 'bg-white border-gray-400 shadow-xl shadow-gray-200/50 -translate-y-1'
+                : 'bg-white border-dashed border-gray-200'
         }
       `}
     >
@@ -102,56 +105,40 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         disabled={disabled}
       />
 
-      {/* --- Decorative Background Layers --- */}
-      
-      {/* 1. Grid Pattern */}
-      <div className={`absolute inset-0 bg-grid transition-opacity duration-700 ${isDragging ? 'opacity-50' : 'opacity-20'}`} />
-      
-      {/* 3. Active Border (Smooth Transition) */}
-      <div className={`
-          absolute inset-0 rounded-[2rem] border-2 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
-          ${isDragging 
-            ? 'border-black border-solid inset-0 opacity-100' 
-            : 'border-dashed border-gray-200 inset-2 group-hover:border-gray-300 group-hover:inset-3 group-hover:border-dashed'
-          }
-      `}></div>
+      {/* Subtle Background Pattern (Engineering Grid) */}
+      <div className={`absolute inset-0 bg-grid pointer-events-none transition-opacity duration-700 ease-in-out ${isDragging ? 'opacity-10' : 'opacity-0'}`} />
 
-      {/* --- Main Content --- */}
-      <div className="relative z-10 flex flex-col items-center justify-center p-6 text-center">
+      <div className="relative z-10 flex flex-col items-center gap-5 p-6 transform transition-transform duration-500 will-change-transform">
         
-        {/* Animated Icon Circle */}
+        {/* Animated Icon Container */}
         <div className={`
-            relative w-20 h-20 mb-6 rounded-2xl flex items-center justify-center
-            transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+            relative p-5 rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
             ${isDragging 
-                ? 'bg-black text-white shadow-xl scale-110 rotate-0' 
-                : 'bg-white text-gray-900 shadow-md border border-gray-100 group-hover:scale-105 group-hover:shadow-lg group-hover:-translate-y-1'
+                ? 'bg-black text-white scale-110 rotate-0 shadow-lg' 
+                : isHovering && !disabled
+                    ? 'bg-gray-100 text-gray-900 scale-105'
+                    : 'bg-gray-50 text-gray-400'
             }
         `}>
-           <CloudArrowUpIcon className={`w-8 h-8 transition-all duration-500 ${isDragging ? 'scale-110' : ''}`} />
+           <CloudArrowUpIcon className={`w-8 h-8 transition-transform duration-500 ${isDragging ? 'scale-110' : ''}`} />
            
-           {/* Success Badge hint */}
-           <div className={`absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full border-2 border-white transition-all duration-500 ease-out ${isDragging ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}></div>
+           {/* Decorative dots that appear on hover */}
+           <div className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-black transition-all duration-500 ${isHovering && !isDragging ? 'opacity-20 scale-100' : 'opacity-0 scale-0'}`}></div>
+           <div className={`absolute -bottom-1 -left-1 w-1.5 h-1.5 rounded-full bg-black transition-all duration-500 delay-75 ${isHovering && !isDragging ? 'opacity-20 scale-100' : 'opacity-0 scale-0'}`}></div>
         </div>
         
-        {/* Typography */}
-        <div className="space-y-2 max-w-md mx-auto relative">
+        <div className="space-y-2 max-w-sm mx-auto">
             <h3 className={`text-lg font-bold tracking-tight transition-colors duration-300 ${isDragging ? 'text-black' : 'text-gray-900'}`}>
-               {isDragging ? 'Отпустите файлы здесь' : title}
+               {isDragging ? 'Отпускайте файлы' : title}
             </h3>
             
-            <p className="text-sm text-gray-500 leading-relaxed font-medium px-4">
+            <p className={`text-sm transition-colors duration-300 leading-relaxed ${isDragging ? 'text-gray-600' : 'text-gray-500'}`}>
                {isDragging ? (
-                   <span className="text-gray-600 transition-opacity duration-300 animate-in fade-in slide-in-from-bottom-1">Мы автоматически обработаем документы</span>
+                   'Мы автоматически распознаем данные'
                ) : (
-                   isDefaultSubtitle ? (
-                       <>
-                          <span className="hidden sm:inline">Перетащите файлы сюда или </span>
-                          <span className="font-semibold text-gray-900 transition-colors duration-300 group-hover:text-black">нажмите для выбора</span>
-                       </>
-                   ) : (
-                       <span className="transition-colors duration-300 group-hover:text-gray-700">{subtitle}</span>
-                   )
+                   <>
+                       <span className="group-hover:text-gray-700 transition-colors">Перетащите файлы сюда</span> или <span className="underline decoration-gray-300 underline-offset-4 decoration-1 group-hover:decoration-black group-hover:text-black transition-all">выберите на компьютере</span>
+                   </>
                )}
             </p>
         </div>
