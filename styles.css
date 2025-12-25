@@ -67,6 +67,12 @@ body {
                     linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
 }
 
+/* Dot Pattern for Dropzone */
+.bg-dot-black {
+  background-image: radial-gradient(circle, #000 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 /* Glass Panel - The core building block */
 .glass-panel {
   background: rgba(255, 255, 255, 0.75);
@@ -91,6 +97,41 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Scanning Line Animation */
+@keyframes scan-line {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-scan {
+  animation: scan-line 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .skeleton {

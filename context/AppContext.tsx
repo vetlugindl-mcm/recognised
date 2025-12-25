@@ -1,9 +1,8 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
-import { AnalysisItem, DocumentTemplate, NotificationType } from '../types';
+import { AnalysisItem, DocumentTemplate } from '../types';
 import { useAnalysisData } from '../hooks/useAnalysisData';
 import { useTemplateData } from '../hooks/useTemplateData';
-import { useNotification } from '../hooks/useNotification';
-import { ToastContainer } from '../components/common/Toast';
+import { useNotification } from '../context/NotificationContext';
 
 interface AppContextType {
   analysisResults: AnalysisItem[];
@@ -19,9 +18,6 @@ interface AppContextType {
   updateAnalysisResult: (fileId: string, item: AnalysisItem) => void;
   removeAnalysisResult: (fileId: string) => void;
   resetAllData: () => Promise<void>;
-
-  // Notifications
-  notify: (type: NotificationType, title: string, message?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -43,13 +39,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isTemplatesLoaded
   } = useTemplateData();
 
-  // 2. Composition: Notification Hook
-  const { notifications, notify, removeNotification } = useNotification();
+  // Notification is now consumed from its own Context, 
+  // but we use it here for the global reset action.
+  const { notify } = useNotification();
 
-  // 3. Aggregated Loading State
+  // 2. Aggregated Loading State
   const isLoaded = isAnalysisLoaded && isTemplatesLoaded;
 
-  // 4. Global Actions
+  // 3. Global Actions
   const resetAllData = useCallback(async () => {
       setAnalysisResults([]);
       setTemplates([]);
@@ -65,14 +62,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addAnalysisResult,
     updateAnalysisResult,
     removeAnalysisResult,
-    resetAllData,
-    notify
+    resetAllData
   };
 
   return (
     <AppContext.Provider value={value}>
       {children}
-      <ToastContainer notifications={notifications} onDismiss={removeNotification} />
     </AppContext.Provider>
   );
 };

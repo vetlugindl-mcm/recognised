@@ -3,6 +3,7 @@ import PizZip from 'pizzip';
 import FileSaver from 'file-saver';
 import { UserProfile } from '../types';
 import { mapProfileToTemplateVariables } from '../utils/templateMapper';
+import { AppError } from '../utils/errors';
 
 // Strict interface for Docxtemplater error properties
 interface TemplateError extends Error {
@@ -59,7 +60,6 @@ export class DocGeneratorService {
       const fileName = `${originalName}_${lastName}_Filled.docx`;
       
       // Fix for "The requested module 'file-saver' does not provide an export named 'saveAs'"
-      // We cast the default import to handle both the function-as-default and object-with-saveAs scenarios
       const saver = FileSaver as unknown as FileSaverModule;
       const saveFunc = saver.saveAs || saver;
       
@@ -100,15 +100,18 @@ export class DocGeneratorService {
 
         if (errors.length > 0) {
             friendlyMessage = `Ошибка в шаблоне Word:\n\n${errors.join('\n\n')}`;
-            throw new Error(friendlyMessage);
+            // Throw standardized AppError instead of generic Error
+            throw new AppError('PARSING_ERROR', friendlyMessage, error);
         }
       }
       
       if (error instanceof Error) {
         friendlyMessage += ` ${error.message}`;
+      } else if (error instanceof AppError) {
+        throw error;
       }
       
-      throw new Error(friendlyMessage);
+      throw new AppError('UNKNOWN_ERROR', friendlyMessage, error);
     }
   }
 }

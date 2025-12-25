@@ -28,8 +28,10 @@ export class PdfService {
   /**
    * Generates a thumbnail from the first page of a PDF file.
    * Uses client-side rendering via PDF.js.
+   * @param file The PDF file
+   * @param targetWidth Target width for the generated image (default 300px for thumbnails, use higher for preview)
    */
-  static async generateThumbnail(file: File): Promise<string | null> {
+  static async generateThumbnail(file: File, targetWidth: number = 300): Promise<string | null> {
     try {
       const pdfjsLib = window.pdfjsLib;
       if (!pdfjsLib) {
@@ -42,9 +44,9 @@ export class PdfService {
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       
-      // Scale for thumbnail (target width ~200px)
+      // Calculate scale to match target width
       const viewport = page.getViewport({ scale: 1.0 });
-      const scale = 200 / viewport.width;
+      const scale = targetWidth / viewport.width;
       const scaledViewport = page.getViewport({ scale });
 
       const canvas = document.createElement('canvas');
@@ -66,7 +68,10 @@ export class PdfService {
       };
       
       await page.render(renderContext).promise;
-      return canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Use slightly higher quality for larger images
+      const quality = targetWidth > 500 ? 0.9 : 0.8;
+      return canvas.toDataURL('image/jpeg', quality);
 
     } catch (error) {
       // We don't want to crash the app if a thumbnail fails, just log it and return null

@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UploadedFile, AnalysisItem } from '../types';
-import { XMarkIcon, CheckIcon, ClockIcon, LoaderIcon, ExclamationCircleIcon } from './icons';
+import { XMarkIcon, CheckIcon, ClockIcon, LoaderIcon, ExclamationCircleIcon, ChevronDownIcon } from './icons';
 import { FilePreview } from './FilePreview';
 
 interface FileListProps {
   files: UploadedFile[];
   onRemove: (id: string) => void;
+  onSelect?: (id: string) => void;
   disabled?: boolean;
   analysisResults?: AnalysisItem[];
   isAnalyzing?: boolean;
 }
+
+const ITEMS_PER_PAGE = 5;
 
 // Helper component for the animated icon transition
 const StatusIconWrapper: React.FC<{ active: boolean, children: React.ReactNode, className?: string, type?: "spin" | "default" }> = ({ active, children, className = "", type = "default" }) => (
@@ -22,8 +25,21 @@ const StatusIconWrapper: React.FC<{ active: boolean, children: React.ReactNode, 
     </div>
 );
 
-export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, analysisResults = [], isAnalyzing = false }) => {
-  
+export const FileList: React.FC<FileListProps> = ({ files, onRemove, onSelect, disabled, analysisResults = [], isAnalyzing = false }) => {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.ceil(files.length / ITEMS_PER_PAGE);
+
+  // Reset to page 1 if files are removed and current page becomes empty
+  useEffect(() => {
+    if (page > totalPages && totalPages > 0) {
+        setPage(totalPages);
+    } else if (totalPages === 0) {
+        setPage(1);
+    }
+  }, [files.length, totalPages, page]);
+
+  const displayedFiles = files.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   const getFileLabel = (file: File) => {
     const type = file.type;
     if (type === 'application/pdf') return 'PDF';
@@ -37,28 +53,47 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest select-none">
           Файлы <span className="text-gray-900 ml-1 opacity-60">({files.length})</span>
         </h4>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400 disabled:opacity-30 transition-colors"
+                >
+                    <ChevronDownIcon className="w-3 h-3 rotate-90" />
+                </button>
+                <span className="text-[10px] font-mono text-gray-500">{page} / {totalPages}</span>
+                <button 
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400 disabled:opacity-30 transition-colors"
+                >
+                    <ChevronDownIcon className="w-3 h-3 -rotate-90" />
+                </button>
+            </div>
+        )}
       </div>
       
-      <div className="flex flex-col gap-2">
-        {files.map((fileObj, index) => {
+      <div className="flex flex-col gap-2 min-h-[300px]">
+        {displayedFiles.map((fileObj, index) => {
           const result = analysisResults.find(r => r.fileId === fileObj.id);
           const isProcessed = !!result;
           const showSpinner = isAnalyzing && !isProcessed;
           const isIdle = !isProcessed && !showSpinner;
-          
-          // Check for handwriting flag
           const isHandwritten = result?.data?.isHandwritten === true;
 
           return (
             <div
               key={fileObj.id}
+              onClick={() => onSelect && isProcessed && onSelect(fileObj.id)}
               className={`
                 group relative flex items-center gap-3.5 p-3 pr-4 rounded-xl transition-all duration-300
-                border hover:shadow-sm
-                animate-enter
+                border hover:shadow-sm animate-enter
                 ${isProcessed 
-                    ? 'bg-white border-gray-200 shadow-sm' 
-                    : 'bg-white/60 border-transparent hover:border-gray-200 hover:bg-white'
+                    ? 'bg-white border-gray-200 shadow-sm cursor-pointer hover:border-black/20' 
+                    : 'bg-white/60 border-transparent hover:border-gray-200 hover:bg-white cursor-default'
                 }
               `}
               style={{ animationDelay: `${index * 50}ms` }}
@@ -96,12 +131,12 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
                   </div>
               )}
 
-              {/* Action Area: Status Icons OR Remove Button */}
+              {/* Action Area */}
                <div className="relative w-8 h-8 flex items-center justify-center ml-auto shrink-0">
                     
-                    {/* Layer 1: Status Icons (Check, Spinner, Clock) */}
+                    {/* Status Icons */}
                     <div className={`
-                        relative w-5 h-5 transition-all duration-300 ease-out
+                        relative w-5 h-5 transition-all duration-300 ease-out flex items-center justify-center
                         ${!disabled ? 'group-hover:opacity-0 group-hover:scale-50' : ''}
                     `}>
                         <StatusIconWrapper active={isProcessed}>
@@ -119,13 +154,13 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
                         </StatusIconWrapper>
                     </div>
 
-                    {/* Layer 2: Remove Button (Reveals on Hover) */}
+                    {/* Remove Action */}
                     {!disabled && (
                         <div className={`
-                            absolute inset-0 flex items-center justify-center z-10
+                            absolute inset-0 flex items-center justify-center gap-1 z-10
                             transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]
-                            opacity-0 scale-50 rotate-45 pointer-events-none
-                            group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0 group-hover:pointer-events-auto
+                            opacity-0 scale-90 translate-x-2 pointer-events-none
+                            group-hover:opacity-100 group-hover:scale-100 group-hover:translate-x-0 group-hover:pointer-events-auto
                         `}>
                             <button
                                 onClick={(e) => {
@@ -134,8 +169,8 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
                                 }}
                                 className="
                                     w-8 h-8 flex items-center justify-center rounded-lg 
-                                    bg-red-50 text-red-500 border border-red-100
-                                    hover:bg-red-500 hover:text-white hover:border-red-500 hover:shadow-md hover:shadow-red-500/20
+                                    bg-gray-100 text-gray-400 border border-gray-200
+                                    hover:bg-red-50 hover:text-red-500 hover:border-red-200
                                     transition-all duration-200
                                 "
                                 title="Удалить файл"
@@ -148,6 +183,11 @@ export const FileList: React.FC<FileListProps> = ({ files, onRemove, disabled, a
             </div>
           );
         })}
+        
+        {/* Fill empty space to keep layout stable if last page has few items */}
+        {displayedFiles.length < ITEMS_PER_PAGE && (
+            <div className="flex-1 min-h-[40px]"></div>
+        )}
       </div>
     </div>
   );

@@ -6,9 +6,16 @@ import { PhotoIcon, AcademicCapIcon, DocumentIcon } from './icons';
 interface FilePreviewProps {
     file: File;
     className?: string;
+    fit?: 'cover' | 'contain';
+    highRes?: boolean;
 }
 
-export const FilePreview: React.FC<FilePreviewProps> = ({ file, className }) => {
+export const FilePreview: React.FC<FilePreviewProps> = ({ 
+    file, 
+    className, 
+    fit = 'cover',
+    highRes = false 
+}) => {
     const isImage = file.type.startsWith('image/');
     const isPdf = file.type === 'application/pdf';
     
@@ -21,16 +28,20 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, className }) => 
     useEffect(() => {
         if (isPdf) {
             let active = true;
-            PdfService.generateThumbnail(file).then(url => {
+            // Use larger width for highRes mode (e.g. Modal view) vs List view
+            const targetWidth = highRes ? 1200 : 300;
+            
+            PdfService.generateThumbnail(file, targetWidth).then(url => {
                 if (active && url) {
                     setPdfThumbnail(url);
                 }
             });
             return () => { active = false; };
         }
-    }, [file, isPdf]);
+    }, [file, isPdf, highRes]);
 
-    const containerClasses = `w-full h-full flex items-center justify-center bg-gray-50 overflow-hidden ${className || ''}`;
+    const containerClasses = `w-full h-full flex items-center justify-center overflow-hidden ${className || ''}`;
+    const imgClasses = `w-full h-full transition-opacity duration-300 ${fit === 'contain' ? 'object-contain' : 'object-cover'} ${fit === 'contain' ? 'opacity-100' : 'opacity-90 group-hover:opacity-100'}`;
 
     // 1. Image Render
     if (isImage && imageUrl) {
@@ -39,7 +50,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, className }) => 
                 <img 
                     src={imageUrl} 
                     alt="preview" 
-                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" 
+                    className={imgClasses} 
                 />
             </div>
         );
@@ -53,32 +64,34 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, className }) => 
                     <img 
                         src={pdfThumbnail} 
                         alt="pdf preview" 
-                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" 
+                        className={imgClasses} 
                     />
                 </div>
             );
         }
         // Fallback while loading or if failed
         return (
-            <div className={`${containerClasses} text-gray-400`}>
-                <AcademicCapIcon className="w-5 h-5" />
+            <div className={`${containerClasses} ${highRes ? 'bg-gray-100' : 'bg-gray-50'} text-gray-400`}>
+                <AcademicCapIcon className={highRes ? "w-16 h-16 opacity-20" : "w-5 h-5"} />
+                {highRes && <span className="mt-4 text-sm font-medium opacity-50">Загрузка предпросмотра PDF...</span>}
             </div>
         );
     }
 
-    // 3. Word/Other Render - Updated to Monochrome
+    // 3. Word/Other Render
     if (file.type.includes('word') || file.type.includes('doc')) {
         return (
-             <div className={`${containerClasses} text-gray-900 bg-gray-100`}>
-                <DocumentIcon className="w-5 h-5" />
+             <div className={`${containerClasses} text-gray-900 bg-gray-100 flex-col gap-2`}>
+                <DocumentIcon className={highRes ? "w-16 h-16 opacity-50" : "w-5 h-5"} />
+                 {highRes && <span className="text-sm font-medium text-gray-500">Предпросмотр недоступен для Word</span>}
             </div>
         );
     }
 
     // 4. Default
     return (
-        <div className={`${containerClasses} text-gray-400`}>
-            <PhotoIcon className="w-5 h-5" />
+        <div className={`${containerClasses} text-gray-400 bg-gray-50`}>
+            <PhotoIcon className={highRes ? "w-16 h-16 opacity-20" : "w-5 h-5"} />
         </div>
     );
 };

@@ -22,8 +22,6 @@ const App: React.FC = () => {
 
   return (
     <DashboardLayout activeView={currentView} onNavigate={setCurrentView}>
-        {/* Mapping New IDs to Existing Components */}
-        
         {currentView === 'templates' && (
            <ErrorBoundary fallbackTitle="Ошибка в шаблонах">
               <TemplatesView />

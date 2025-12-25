@@ -1,5 +1,5 @@
 
-# Project Manifesto & Engineering Standards (v2025.12.8)
+# Project Manifesto & Engineering Standards (v2025.12.10)
 
 > **Context:** December 2025.
 > **Philosophy:** "Premium Utility". The application serves as a high-precision tool for document processing. It combines monochromatic aesthetics with robust, strictly typed logic, schema-driven UI, and kinetic interactions.
@@ -63,6 +63,11 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 *   **Services:** `camelCase` (e.g., `pdfService.ts`).
 *   **Constants:** `UPPER_SNAKE_CASE` (e.g., `DOCUMENT_SCHEMAS`).
 
+### 3.3 Dependency Strategy (Zero-Conflict)
+*   **Constraint:** Due to the Importmap React environment, avoid libraries that rely on internal React internals or synthetic event patching (e.g., `react-zoom-pan-pinch`).
+*   **Solution:** Prefer lightweight, custom implementations using native DOM events (`refs`, `addEventListener`) for UI interactions like Drag & Drop, Zoom, or Focus management.
+*   **Example:** Use `ImageZoom.tsx` (custom) instead of external heavy libraries.
+
 ---
 
 ## 4. AI & Data Extraction Rules
@@ -97,14 +102,24 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
     *   This provides a "heavy", premium feel with a quick snap and slow settle.
 *   **Micro-interactions:** Elements should lift (`-translate-y-1`), scale slightly (`scale-102`), or cast a shadow on hover.
 
-### 5.3 Field Actions (Material Design)
-*   **Placement:** Action icons (Edit, Copy) must be positioned in the **top-right** corner of the field header (`ml-auto`).
-*   **Visibility:** Actions are visible on group hover.
-*   **Styling:** Use `rounded-md` with `hover:bg-gray-100` for clear, tactile hit areas.
+### 5.3 Accessibility (A11y) & Input
+*   **Focus Trap:** Modals and Lightboxes **MUST** trap keyboard focus using `useFocusTrap` to prevent tab navigation outside the active layer.
+*   **Escape Key:** All overlays must close on `Escape` key press.
+*   **Touch:** Zoom and Pan interactions must support touch events for tablet users.
 
-### 5.4 User Verification Principle ("Human-in-the-Loop")
-*   **Rule:** If the AI flags a field as `isHandwritten` (Red Warning), but the user manually edits or confirms the field (onBlur/Enter), the warning state **must be removed**.
-*   **Logic:** A user-edited field is considered "Verified". It transitions from Red/Warning style to the standard Default style.
+### 5.4 Performance & Rendering
+*   **Virtualization:** Lists of files (e.g., `FileList.tsx`) exceeding 5 items must use pagination or virtualization to maintain 60fps.
+*   **PDF Handling:** Never render full PDFs in lists. Use `PdfService` to generate lightweight JPG thumbnails via Canvas. Only load full PDF iframes in the Detail Modal.
+
+### 5.5 Overlays & Portals (Z-Index Strategy)
+*   **Portals:** All Modals, Lightboxes, and global Overlays **MUST** be rendered using `React Portal` (`createPortal`) attached to `document.body`. This prevents stacking context issues with sticky headers or overflow containers.
+*   **Z-Index Hierarchy:**
+    *   `z-0` to `z-10`: Content layers, backgrounds.
+    *   `z-40`: Sidebars / Drawers.
+    *   `z-50`: Sticky Headers (App Shell).
+    *   `z-[60]`: Modals / Dialogs (via Portal).
+    *   `z-[70]`: Lightbox / Zoom Overlay (via Portal, on top of Modal).
+    *   `z-[100]`: Toasts / Critical Notifications.
 
 ---
 
@@ -121,6 +136,8 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 *   ❌ **Blue Accents:** Do not use `blue-500` for primary actions. Use Black.
 *   ❌ **Complex Scanners:** No "laser beam" animations. Use clean, kinetic states.
 *   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson`.
+*   ❌ **Inline Modals:** Do not render modals inside the main component tree. Use Portals.
+*   ❌ **External Zoom Libs:** Do not use `react-zoom-pan-pinch` (Version Conflict). Use `ImageZoom.tsx`.
 
 ---
 
@@ -139,9 +156,3 @@ This project is architected for a seamless transition from Local-First (Stage 2)
 2.  **Update Hooks:** Modify `hooks/useAnalysisData.ts` to handle asynchronous `save` operations.
     *   Currently, saving is a side-effect of `useEffect`. In Cloud mode, `addAnalysisResult` should be an `async` function that awaits the DB response before updating local state (Optimistic UI is optional but recommended).
 3.  **Environment:** Add `VITE_API_URL` and `VITE_DB_KEY` to `.env`.
-
-### 8.3 Data Schema Mapping
-When creating the remote database, map the types as follows:
-*   `AnalysisItem[]` -> Table `documents` (JSONB column for `data`).
-*   `DocumentTemplate[]` -> Table `templates` + Storage Bucket `templates/{id}.docx`.
-*   `UploadedFile` -> Storage Bucket `user-uploads/{id}`.

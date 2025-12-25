@@ -7,7 +7,7 @@ export const FieldGroup: React.FC<{ title: string, children?: React.ReactNode, c
       {title}
       <div className="h-px bg-gray-100 flex-1"></div>
     </h4>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
       {children}
     </div>
   </div>
@@ -19,30 +19,24 @@ export interface FieldProps {
   fullWidth?: boolean;
   onSave?: (newValue: string) => void;
   isHandwritten?: boolean; // Controls the red highlighting
+  className?: string;
 }
 
-export const Field: React.FC<FieldProps> = ({ label, value, fullWidth = false, onSave, isHandwritten = false }) => {
+export const Field: React.FC<FieldProps> = ({ label, value, fullWidth = false, onSave, isHandwritten = false, className = '' }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value || '');
-  // New state: Tracks if the user has manually approved/edited this field in this session
   const [hasUserEdited, setHasUserEdited] = useState(false);
 
-  // Update temp value if prop changes externally
   useEffect(() => {
     setTempValue(value || '');
   }, [value]);
 
-  // Validation Logic
   const isValueEmpty = !value || (typeof value === 'string' && value.trim() === '') || value === 'null';
   const isTempEmpty = !tempValue || (typeof tempValue === 'string' && tempValue.trim() === '');
-  
-  // Warning State logic:
-  // 1. Must not be empty (empty fields have their own error state)
-  // 2. Must be flagged by AI as handwritten
-  // 3. User MUST NOT have edited it yet. If they edited it, we trust them.
   const isHandwrittenWarning = !isValueEmpty && isHandwritten && !hasUserEdited;
 
-  const handleCopy = () => {
+  const handleCopy = (e: React.MouseEvent) => {
+     e.stopPropagation();
      if (value && !isValueEmpty) navigator.clipboard.writeText(value);
   };
 
@@ -56,119 +50,99 @@ export const Field: React.FC<FieldProps> = ({ label, value, fullWidth = false, o
       onSave(tempValue);
     }
     setIsEditing(false);
-    // Mark as verified by user interaction
     setHasUserEdited(true);
-  };
-
-  const handleCancel = () => {
-    setTempValue(value || '');
-    setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSave();
     } else if (e.key === 'Escape') {
-      handleCancel();
+      setTempValue(value || '');
+      setIsEditing(false);
     }
   };
 
   return (
     <div className={`
-        flex flex-col group relative rounded-lg transition-all duration-300
-        ${fullWidth ? 'sm:col-span-2' : ''}
-        ${!isEditing && isValueEmpty 
-            ? 'bg-red-50 -mx-2 px-2 py-1 border border-red-200' 
-            : !isEditing && isHandwrittenWarning
-                ? 'bg-red-50 -mx-2 px-2 py-1 border border-red-200 shadow-sm shadow-red-100' // Warning Highlight
-                : 'py-1 border border-transparent' // Normal State (or User Verified)
-        }
+        group flex flex-col relative
+        ${fullWidth ? 'col-span-1 sm:col-span-2' : ''}
+        ${className}
     `}>
-      {/* Header Row: Label + Badge + Right-Aligned Actions */}
-      <div className="flex items-center justify-between mb-1.5 min-h-[1.25rem]">
-          <div className="flex items-center gap-2">
-            <span className={`
-                text-xs font-medium font-sans tracking-wide transition-colors
-                ${!isEditing && isValueEmpty ? 'text-red-600' : ''}
-                ${!isEditing && isHandwrittenWarning ? 'text-red-600' : 'text-gray-500'}
-            `}>
-                {label}
-            </span>
-            
-            {/* Handwritten Badge - Explicitly Red */}
-            {!isEditing && isHandwrittenWarning && (
-                <div className="flex items-center gap-1 bg-red-100 px-1.5 py-0.5 rounded text-[10px] text-red-700 font-bold leading-none select-none border border-red-200">
-                    <PencilIcon className="w-3 h-3" />
-                    <span>Проверьте данные</span>
-                </div>
-            )}
-          </div>
+      {/* Top Label Row */}
+      {/* Added min-h-[20px] to prevent layout shift when badge appears */}
+      <div className="flex items-center justify-between mb-1.5 min-h-[20px]">
+          <label 
+            className="text-xs text-gray-500 uppercase tracking-wide font-semibold select-none truncate whitespace-nowrap" 
+            title={label}
+          >
+              {label}
+          </label>
           
-          {/* Action Icons - Right Aligned (Material Design Style) */}
-          {!isEditing && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-               <button 
-                onClick={handleStartEdit}
-                className={`
-                    p-1 rounded-md transition-colors 
-                    ${isValueEmpty || isHandwrittenWarning 
-                        ? 'text-red-500 hover:bg-red-100 hover:text-red-700' 
-                        : 'text-gray-400 hover:bg-gray-100 hover:text-black'
-                    }
-                `}
-                title="Редактировать"
-              >
-                <PencilIcon className="w-3.5 h-3.5" />
-              </button>
-              {!isValueEmpty && (
-                <button 
-                    onClick={handleCopy} 
-                    className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-black transition-colors"
-                    title="Копировать"
-                >
-                    <ClipboardIcon className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          {/* Handwritten Warning Badge */}
+          {!isEditing && isHandwrittenWarning && (
+              <span className="flex items-center gap-1 text-[9px] text-red-600 font-bold uppercase tracking-wider bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">
+                  <ExclamationCircleIcon className="w-3 h-3" />
+                  Check
+              </span>
           )}
       </div>
 
-      {isEditing ? (
-        <input 
-          autoFocus
-          type="text"
-          value={tempValue}
-          onChange={(e) => setTempValue(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          placeholder="Введите значение"
-          className={`
-            text-base leading-relaxed font-normal bg-transparent border-b outline-none w-full p-0 pb-0.5 transition-colors
-            ${isTempEmpty 
-                ? 'border-red-500 text-gray-900 placeholder-red-300' 
-                : 'border-black text-gray-900 placeholder-gray-300'
-            }
-          `}
-        />
-      ) : (
-        <div className="flex items-center gap-2 min-h-[1.5rem]">
-            {isValueEmpty ? (
-                <div className="flex items-center gap-1.5 animate-enter">
-                    <ExclamationCircleIcon className="w-4 h-4 text-red-500" />
-                    <span className="text-base leading-relaxed font-medium text-red-500 break-words tracking-normal">
-                        Не распознано
-                    </span>
-                </div>
-            ) : (
-                <span className={`
-                    text-base leading-relaxed font-normal break-words tracking-normal 
-                    ${isHandwrittenWarning ? 'text-gray-900' : 'text-gray-900'}
-                `}>
-                    {value}
+      {/* Input / Display Area */}
+      <div className="relative">
+          {isEditing ? (
+            <input 
+              autoFocus
+              type="text"
+              value={tempValue}
+              onChange={(e) => setTempValue(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={handleKeyDown}
+              className={`
+                w-full bg-white border rounded-lg px-3 py-2 text-sm text-gray-900 font-medium outline-none transition-all shadow-sm
+                ${isTempEmpty 
+                    ? 'border-red-300 ring-2 ring-red-100' 
+                    : 'border-black ring-1 ring-black/10'
+                }
+              `}
+            />
+          ) : (
+            <div 
+                onClick={handleStartEdit}
+                className={`
+                    w-full min-h-[38px] px-3 py-2 rounded-lg border flex items-center justify-between cursor-text transition-all duration-200
+                    ${isValueEmpty 
+                        ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                        : isHandwrittenWarning
+                            ? 'bg-red-50/50 border-red-200 text-gray-900 shadow-sm shadow-red-100 hover:border-red-300'
+                            : 'bg-gray-50/50 border-transparent hover:bg-white hover:border-gray-300 hover:shadow-sm'
+                    }
+                `}
+            >
+                {/* Content */}
+                <span className={`text-sm font-medium truncate ${isValueEmpty ? 'text-red-500 italic' : 'text-gray-900'}`}>
+                    {isValueEmpty ? 'Не заполнено' : value}
                 </span>
-            )}
-        </div>
-      )}
+
+                {/* Hover Actions */}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <button 
+                        onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
+                        className="p-1 rounded text-gray-400 hover:text-gray-900 hover:bg-gray-200/50"
+                     >
+                        <PencilIcon className="w-3.5 h-3.5" />
+                     </button>
+                     {!isValueEmpty && (
+                         <button 
+                            onClick={handleCopy}
+                            className="p-1 rounded text-gray-400 hover:text-gray-900 hover:bg-gray-200/50"
+                         >
+                            <ClipboardIcon className="w-3.5 h-3.5" />
+                         </button>
+                     )}
+                </div>
+            </div>
+          )}
+      </div>
     </div>
   );
 };

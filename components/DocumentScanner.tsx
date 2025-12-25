@@ -1,18 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Dropzone } from './Dropzone';
 import { FileList } from './FileList';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { UnifiedProfileForm } from './UnifiedProfileForm';
-import { analyzeFile } from '../services/gemini';
+import { FileDetailModal } from './FileDetailModal'; // Imported
 import { StorageService } from '../services/storageService';
-import { UploadedFile, AnalysisState, AnalyzedDocument, AnalysisItem } from '../types';
+import { UploadedFile, AnalyzedDocument } from '../types';
 import { SparklesIcon, CheckCircleIcon, BuildingOfficeIcon, LoaderIcon } from './icons';
 import { useUserProfile } from '../hooks/useUserProfile';
-import { AppError } from '../utils/errors';
 import { useAppContext } from '../context/AppContext';
+import { useNotification } from '../context/NotificationContext';
 import { useFileHydration } from '../hooks/useFileHydration';
 import { ErrorBoundary } from './ErrorBoundary';
-import { sortAnalysisResults } from '../utils/documentUtils';
+import { useDocumentProcessor } from '../hooks/useDocumentProcessor';
 
 const BtnIconWrapper: React.FC<{ active: boolean, children: React.ReactNode }> = ({ active, children }) => (
     <div className={`
@@ -28,15 +28,25 @@ export const DocumentScanner: React.FC = () => {
     analysisResults, 
     setAnalysisResults, 
     updateAnalysisResult, 
-    removeAnalysisResult,
-    notify 
+    removeAnalysisResult
   } = useAppContext();
-  
+
+  const { notify } = useNotification();
   const { files, setFiles, isHydrating } = useFileHydration(analysisResults);
-  const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
+  
+  // Logic extracted to custom hook
+  const { 
+      processFiles, 
+      isAnalyzing, 
+      isComplete, 
+      setAnalysisState 
+  } = useDocumentProcessor(files, analysisResults);
 
   // Computed Profile from Global State
   const userProfile = useUserProfile(analysisResults);
+
+  // --- Modal State ---
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
   const handleFilesAdded = useCallback(async (newFiles: File[]) => {
     const newUploadedFiles: UploadedFile[] = [];
@@ -58,7 +68,7 @@ export const DocumentScanner: React.FC = () => {
     // Notify user
     notify('info', 'Файлы добавлены', `Загружено документов: ${newFiles.length}. Нажмите "Распознать".`);
 
-  }, [setFiles, notify]);
+  }, [setFiles, notify, setAnalysisState]);
 
   const handleRemoveFile = useCallback(async (id: string) => {
     // 1. Update UI State (Files)
@@ -70,7 +80,9 @@ export const DocumentScanner: React.FC = () => {
     // 3. Remove from Storage
     await StorageService.deleteFile(id);
 
-  }, [setFiles, removeAnalysisResult]);
+    if (selectedFileId === id) setSelectedFileId(null);
+
+  }, [setFiles, removeAnalysisResult, selectedFileId]);
 
   const handleDataUpdate = useCallback((fileId: string, newData: AnalyzedDocument) => {
       // Find original item to preserve meta
@@ -79,70 +91,6 @@ export const DocumentScanner: React.FC = () => {
           updateAnalysisResult(fileId, { ...original, data: newData });
       }
   }, [analysisResults, updateAnalysisResult]);
-
-  const handleAnalyze = async () => {
-    const unprocessedFiles = files.filter(f => !analysisResults.some(r => r.fileId === f.id));
-
-    if (unprocessedFiles.length === 0) {
-      if (files.length === 0) {
-        notify('warning', 'Нет файлов', 'Пожалуйста, загрузите документы перед анализом.');
-      } else {
-        notify('info', 'Готово', 'Все загруженные файлы уже обработаны.');
-      }
-      return;
-    }
-
-    setAnalysisState('analyzing');
-    notify('info', 'Начинаем анализ', `В очереди на обработку: ${unprocessedFiles.length} док.`);
-    
-    // SEQUENTIAL PROCESSING LOOP
-    for (const fileObj of unprocessedFiles) {
-        try {
-            // 1. Analyze
-            const analyzedData = await analyzeFile(fileObj.file);
-            
-            const newItem: AnalysisItem = {
-                fileId: fileObj.id,
-                fileName: fileObj.file.name,
-                data: analyzedData
-            };
-
-            // 2. Update Context IMMEDIATELY (User sees result appear)
-            setAnalysisResults(prevResults => {
-                const combined = [...prevResults, newItem];
-                return sortAnalysisResults(combined);
-            });
-
-            // 3. Artificial Delay (Rate Limiting Safety)
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-        } catch (error: unknown) {
-            console.error(`Error analyzing ${fileObj.file.name}:`, error);
-            const errorMessage = error instanceof AppError 
-                ? error.publicMessage 
-                : "Не удалось обработать файл";
-
-            const errorItem: AnalysisItem = {
-                fileId: fileObj.id,
-                fileName: fileObj.file.name,
-                data: null,
-                error: errorMessage
-            };
-
-            // Add error result so the UI stops spinning for this file
-            setAnalysisResults(prevResults => {
-                const combined = [...prevResults, errorItem];
-                return sortAnalysisResults(combined);
-            });
-
-            // Show error toast
-            notify('error', 'Ошибка анализа', `${fileObj.file.name}: ${errorMessage}`);
-        }
-    }
-
-    setAnalysisState('complete');
-    notify('success', 'Обработка завершена', 'Все документы проверены AI.');
-  };
 
   const handleReset = async () => {
     const ids = files.map(f => f.id);
@@ -155,10 +103,12 @@ export const DocumentScanner: React.FC = () => {
     notify('info', 'Очистка', 'Список файлов и данные сброшены.');
   };
 
+  // Find the selected analysis item AND the original file blob
+  const selectedItem = analysisResults.find(r => r.fileId === selectedFileId) || null;
+  const selectedFileObj = files.find(f => f.id === selectedFileId)?.file || null;
+  
   const unprocessedCount = files.length - analysisResults.length;
-  const isAnalyzing = analysisState === 'analyzing';
   const hasResults = analysisResults.length > 0;
-  const isComplete = unprocessedCount === 0 && analysisResults.length > 0;
 
   return (
     <ErrorBoundary fallbackTitle="Ошибка в модуле сканирования">
@@ -179,14 +129,16 @@ export const DocumentScanner: React.FC = () => {
 
             {/* UPLOAD AREA */}
             <section className="animate-enter" style={{ animationDelay: '100ms' }}>
-                <div className="glass-panel rounded-2xl p-1 shadow-xl shadow-gray-200/50 border-gray-100">
-                    <div className="bg-white/70 rounded-xl p-6 space-y-6">
-                        <div className={`grid grid-cols-1 ${files.length > 0 ? 'md:grid-cols-2' : ''} gap-8 items-start transition-all duration-300`}>
+                <div className="glass-panel rounded-3xl p-1 shadow-2xl shadow-gray-200/50 border-gray-100">
+                    <div className="bg-white/80 rounded-[1.25rem] p-8 space-y-8">
+                        <div className={`grid grid-cols-1 ${files.length > 0 ? 'lg:grid-cols-2' : ''} gap-8 items-start transition-all duration-500`}>
                             <div className="w-full">
                                 <Dropzone 
                                     onFilesAdded={handleFilesAdded} 
-                                    disabled={isAnalyzing} 
-                                    title="Загрузить документы"
+                                    disabled={isAnalyzing}
+                                    isProcessing={isAnalyzing} 
+                                    title="Загрузка документов"
+                                    subtitle="Перетащите паспорт, диплом и удостоверения"
                                 />
                             </div>
                             
@@ -194,7 +146,8 @@ export const DocumentScanner: React.FC = () => {
                                 <div className="w-full animate-enter">
                                     <FileList 
                                         files={files} 
-                                        onRemove={handleRemoveFile} 
+                                        onRemove={handleRemoveFile}
+                                        onSelect={(id) => setSelectedFileId(id)}
                                         disabled={isAnalyzing}
                                         analysisResults={analysisResults}
                                         isAnalyzing={isAnalyzing}
@@ -204,19 +157,19 @@ export const DocumentScanner: React.FC = () => {
                         </div>
 
                         {files.length > 0 && (
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200/50">
+                            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
                                 <button
                                     onClick={handleReset}
                                     disabled={isAnalyzing}
-                                    className="px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-all disabled:opacity-50"
+                                    className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-all disabled:opacity-50"
                                 >
                                     Сброс
                                 </button>
                                 <button
-                                    onClick={handleAnalyze}
+                                    onClick={processFiles}
                                     disabled={isAnalyzing || unprocessedCount === 0}
                                     className={`
-                                        relative overflow-hidden px-8 py-2.5 rounded-lg text-sm font-bold text-white shadow-lg transition-all duration-300 min-w-[160px]
+                                        relative overflow-hidden px-10 py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all duration-300 min-w-[180px]
                                         hover:-translate-y-0.5 active:translate-y-0 active:scale-95
                                         disabled:opacity-80 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
                                         ${isComplete
@@ -240,7 +193,7 @@ export const DocumentScanner: React.FC = () => {
                                         <span className="relative">
                                             {isAnalyzing 
                                                 ? `Обработка...` 
-                                                : isComplete ? "Готово" : "Распознать"}
+                                                : isComplete ? "Готово" : "Распознать AI"}
                                         </span>
                                     </div>
                                 </button>
@@ -253,20 +206,30 @@ export const DocumentScanner: React.FC = () => {
             {/* UNIFIED SUMMARY FORM */}
             {(hasResults || isAnalyzing) && (
             <section className="animate-enter" style={{ animationDelay: '200ms' }}>
-                <div className="flex items-center gap-3 mb-6 px-1 mt-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] select-none">
-                        Профиль кандидата
-                    </span>
+                <div className="flex items-center gap-3 mb-6 px-1 mt-4">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Результаты анализа</span>
                     <div className="h-px bg-gray-200 flex-1"></div>
                 </div>
 
-                {isAnalyzing && !hasResults ? (
+                {isHydrating || (isAnalyzing && analysisResults.length === 0) ? (
                     <AnalysisSkeleton />
                 ) : (
-                    <UnifiedProfileForm profile={userProfile} onUpdate={handleDataUpdate} />
+                    <UnifiedProfileForm 
+                        profile={userProfile} 
+                        onUpdate={handleDataUpdate}
+                    />
                 )}
             </section>
             )}
+
+            {/* DETAIL MODAL */}
+            <FileDetailModal 
+                isOpen={!!selectedFileId}
+                onClose={() => setSelectedFileId(null)}
+                analysisItem={selectedItem}
+                file={selectedFileObj}
+                onUpdate={handleDataUpdate}
+            />
         </div>
     </ErrorBoundary>
   );

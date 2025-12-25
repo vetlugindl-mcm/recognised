@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { CloudArrowUpIcon } from './icons';
+import { ArrowDownTrayIcon, DocumentIcon, LoaderIcon } from './icons';
 
 interface DropzoneProps {
   onFilesAdded: (files: File[]) => void;
   disabled?: boolean;
+  isProcessing?: boolean;
   title?: string;
   subtitle?: string;
   accept?: string;
@@ -12,8 +13,9 @@ interface DropzoneProps {
 export const Dropzone: React.FC<DropzoneProps> = ({ 
   onFilesAdded, 
   disabled,
+  isProcessing = false,
   title = 'Загрузить документы',
-  subtitle = 'Перетащите файлы сюда или нажмите для выбора',
+  subtitle = 'Перетащите файлы (PDF, JPG, DOCX)',
   accept = 'image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -73,6 +75,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       }
   }
 
+  // --- Visual Logic ---
+  const isActive = isDragging;
+  const showScanning = isProcessing;
+
   return (
     <div
       onDragEnter={handleDragEnter}
@@ -83,15 +89,16 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       className={`
-        relative group w-full min-h-[280px] rounded-2xl cursor-pointer select-none flex flex-col items-center justify-center text-center overflow-hidden
+        relative group w-full min-h-[320px] rounded-3xl cursor-pointer select-none flex flex-col items-center justify-center text-center overflow-hidden
         transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
-        border-2 
-        ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200' : ''}
-        ${isDragging 
-            ? 'bg-white border-black shadow-2xl shadow-black/5 scale-[1.02]' 
-            : isHovering && !disabled
-                ? 'bg-white border-gray-400 shadow-xl shadow-gray-200/50 -translate-y-1'
-                : 'bg-white border-dashed border-gray-200'
+        border-[3px] border-dashed
+        ${disabled 
+            ? 'cursor-not-allowed bg-gray-50 border-gray-200' 
+            : isActive 
+                ? 'bg-gray-50 border-black scale-[1.01] shadow-2xl shadow-black/5'
+                : isHovering
+                    ? 'bg-white border-gray-300 shadow-xl shadow-gray-200/50 -translate-y-1'
+                    : 'bg-white border-gray-200'
         }
       `}
     >
@@ -105,43 +112,97 @@ export const Dropzone: React.FC<DropzoneProps> = ({
         disabled={disabled}
       />
 
-      {/* Subtle Background Pattern (Engineering Grid) */}
-      <div className={`absolute inset-0 bg-grid pointer-events-none transition-opacity duration-700 ease-in-out ${isDragging ? 'opacity-10' : 'opacity-0'}`} />
+      {/* --- LAYER 1: Background Patterns --- */}
+      
+      {/* Dot Pattern */}
+      <div className={`absolute inset-0 bg-dot-black transition-opacity duration-700 pointer-events-none ${isActive ? 'opacity-[0.15]' : isHovering ? 'opacity-[0.08]' : 'opacity-[0.03]'}`} />
+      
+      {/* Radial Gradient Spotlight */}
+      <div className={`absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white/80 pointer-events-none`} />
 
-      <div className="relative z-10 flex flex-col items-center gap-5 p-6 transform transition-transform duration-500 will-change-transform">
+      {/* Scanning Line Animation */}
+      {(isActive || showScanning) && (
+        <div className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-black to-transparent z-0 animate-scan pointer-events-none opacity-50">
+             <div className="absolute inset-0 bg-black blur-[4px] opacity-20"></div>
+        </div>
+      )}
+
+      {/* --- LAYER 2: Corner Brackets (Scanner Aesthetic) --- */}
+      {/* Top Left */}
+      <div className={`absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 transition-all duration-500 ease-out pointer-events-none rounded-tl-lg
+        ${isActive || showScanning ? 'border-black scale-110 translate-x-1 translate-y-1' : isHovering ? 'border-gray-900' : 'border-gray-300'}
+      `}/>
+      {/* Top Right */}
+      <div className={`absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 transition-all duration-500 ease-out pointer-events-none rounded-tr-lg
+        ${isActive || showScanning ? 'border-black scale-110 -translate-x-1 translate-y-1' : isHovering ? 'border-gray-900' : 'border-gray-300'}
+      `}/>
+      {/* Bottom Left */}
+      <div className={`absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 transition-all duration-500 ease-out pointer-events-none rounded-bl-lg
+        ${isActive || showScanning ? 'border-black scale-110 translate-x-1 -translate-y-1' : isHovering ? 'border-gray-900' : 'border-gray-300'}
+      `}/>
+      {/* Bottom Right */}
+      <div className={`absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 transition-all duration-500 ease-out pointer-events-none rounded-br-lg
+        ${isActive || showScanning ? 'border-black scale-110 -translate-x-1 -translate-y-1' : isHovering ? 'border-gray-900' : 'border-gray-300'}
+      `}/>
+
+
+      {/* --- LAYER 3: Main Content --- */}
+      <div className="relative z-10 flex flex-col items-center gap-6 p-6 transform transition-transform duration-500 will-change-transform">
         
         {/* Animated Icon Container */}
         <div className={`
-            relative p-5 rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
-            ${isDragging 
-                ? 'bg-black text-white scale-110 rotate-0 shadow-lg' 
+            relative p-6 rounded-2xl transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+            ${isActive || showScanning
+                ? 'bg-black text-white scale-110 rotate-0 shadow-xl shadow-black/20' 
                 : isHovering && !disabled
-                    ? 'bg-gray-100 text-gray-900 scale-105'
-                    : 'bg-gray-50 text-gray-400'
+                    ? 'bg-black text-white scale-105 shadow-lg shadow-black/10'
+                    : 'bg-gray-100 text-gray-400'
             }
         `}>
-           <CloudArrowUpIcon className={`w-8 h-8 transition-transform duration-500 ${isDragging ? 'scale-110' : ''}`} />
+           {showScanning ? (
+              <LoaderIcon className="w-10 h-10 animate-spin" />
+           ) : isActive ? (
+               <ArrowDownTrayIcon className="w-10 h-10 animate-bounce" />
+           ) : (
+               <DocumentIcon className={`w-10 h-10 transition-transform duration-500 ${isHovering ? 'scale-110' : ''}`} />
+           )}
            
-           {/* Decorative dots that appear on hover */}
-           <div className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-black transition-all duration-500 ${isHovering && !isDragging ? 'opacity-20 scale-100' : 'opacity-0 scale-0'}`}></div>
-           <div className={`absolute -bottom-1 -left-1 w-1.5 h-1.5 rounded-full bg-black transition-all duration-500 delay-75 ${isHovering && !isDragging ? 'opacity-20 scale-100' : 'opacity-0 scale-0'}`}></div>
+           {/* Decorative Rings */}
+           <div className={`absolute inset-0 rounded-2xl border border-black transition-all duration-700 ${(isActive || showScanning) ? 'scale-125 opacity-20' : 'scale-100 opacity-0'}`} />
+           <div className={`absolute inset-0 rounded-2xl border border-black transition-all duration-1000 delay-100 ${(isActive || showScanning) ? 'scale-150 opacity-10' : 'scale-100 opacity-0'}`} />
         </div>
         
-        <div className="space-y-2 max-w-sm mx-auto">
-            <h3 className={`text-lg font-bold tracking-tight transition-colors duration-300 ${isDragging ? 'text-black' : 'text-gray-900'}`}>
-               {isDragging ? 'Отпускайте файлы' : title}
+        {/* Text Content */}
+        <div className="space-y-3 max-w-sm mx-auto">
+            <h3 className={`text-2xl font-bold tracking-tight transition-colors duration-300 ${isActive || showScanning ? 'text-black' : 'text-gray-900'}`}>
+               {showScanning ? 'Анализируем документы...' : isActive ? 'Отпускайте файлы' : title}
             </h3>
             
-            <p className={`text-sm transition-colors duration-300 leading-relaxed ${isDragging ? 'text-gray-600' : 'text-gray-500'}`}>
-               {isDragging ? (
-                   'Мы автоматически распознаем данные'
+            <p className={`text-sm transition-colors duration-300 leading-relaxed font-medium ${isActive || showScanning ? 'text-gray-900' : 'text-gray-500'}`}>
+               {showScanning ? (
+                   'Подождите, идет обработка с помощью AI'
+               ) : isActive ? (
+                   'Мы автоматически извлечем данные'
                ) : (
-                   <>
-                       <span className="group-hover:text-gray-700 transition-colors">Перетащите файлы сюда</span> или <span className="underline decoration-gray-300 underline-offset-4 decoration-1 group-hover:decoration-black group-hover:text-black transition-all">выберите на компьютере</span>
-                   </>
+                   <span className="flex flex-col gap-1">
+                       <span>{subtitle}</span>
+                       <span className={`text-xs opacity-60 transition-opacity duration-300 ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
+                           или нажмите для выбора вручную
+                       </span>
+                   </span>
                )}
             </p>
         </div>
+
+        {/* Badge */}
+        {!isActive && !showScanning && !disabled && (
+            <div className={`
+                mt-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all duration-500
+                ${isHovering ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-200'}
+            `}>
+                AI Scanner Ready
+            </div>
+        )}
       </div>
     </div>
   );
