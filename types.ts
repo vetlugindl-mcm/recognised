@@ -3,14 +3,24 @@
 export interface UploadedFile {
   file: File;
   id: string;
-  // previewUrl is removed to prevent memory leaks and state duplication. 
-  // Visual components should derive it using useObjectUrl or PdfService.
 }
 
 export type AnalysisState = 'idle' | 'analyzing' | 'complete' | 'error';
 
-// UPDATED: New View IDs
 export type ViewState = 'upload_docs' | 'nostroy_match' | 'nopriz_match' | 'templates';
+
+// --- Notifications ---
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message?: string;
+  duration?: number;
+}
+
+// --- Document Data Types ---
 
 export interface DiplomaData {
   type: 'diploma';
@@ -51,13 +61,12 @@ export interface PassportData {
   isHandwritten?: boolean;
 }
 
-// NEW: Standalone SNILS Document
 export interface SnilsData {
   type: 'snils';
   lastName: string;
   firstName: string;
   middleName: string;
-  snils: string; // The main value we need
+  snils: string; 
   dateIssued?: string;
   isHandwritten?: boolean;
 }
@@ -70,8 +79,8 @@ export interface QualificationData {
   registrationNumber: string;
   issueDate: string;
   expirationDate: string;
-  assessmentCenterName: string; // п. 4.5
-  assessmentCenterRegNumber: string; // п. 4.6
+  assessmentCenterName: string; 
+  assessmentCenterRegNumber: string; 
   isHandwritten?: boolean;
 }
 
@@ -99,7 +108,6 @@ export interface DocumentTemplate {
   size: number;
 }
 
-// Aggregated Profile Type for the Unified Form
 export interface UserProfile {
   fullName: string;
   passport: {
@@ -114,11 +122,7 @@ export interface UserProfile {
     data: QualificationData | null;
     sourceFileId: string | null;
   };
-  // We keep SNILS logically attached to Identity (Passport) in the unified view, 
-  // but we can track the source document if needed.
 }
-
-// --- Validation & Compliance Types ---
 
 export type ComplianceStatus = 'success' | 'warning' | 'error';
 
@@ -130,7 +134,7 @@ export interface ValidationRuleResult {
 }
 
 export interface ComplianceReport {
-  score: number; // 0 to 100
+  score: number; 
   status: ComplianceStatus;
   checks: ValidationRuleResult[];
   summary: string;

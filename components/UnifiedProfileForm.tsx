@@ -23,23 +23,56 @@ const EmptySection = ({ text }: { text: string }) => (
   </div>
 );
 
+// Typed configuration to allow TS to understand the relationship between keys
+interface SectionConfig {
+    profileKey: keyof Omit<UserProfile, 'fullName'>; // Explicitly map to profile keys
+    docType: SupportedDocTypes;
+    emptyText: string;
+}
+
 export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile, onUpdate }) => {
   const { fullName } = profile;
 
-  // Generic handler for field updates
+  // Generic handler for field updates with safer typing
   const handleFieldUpdate = (
-    data: any, // We trust the schema matches the data structure
+    data: AnalyzedDocument,
     fileId: string | null,
     fieldKey: string,
     value: string
   ) => {
     if (fileId && data) {
-      onUpdate(fileId, { ...data, [fieldKey]: value });
+      // Create a copy to satisfy immutability conceptually, though spread does shallow copy
+      const updatedData = { ...data, [fieldKey]: value };
+      onUpdate(fileId, updatedData);
     }
   };
 
-  // Define the render order and mapping to profile keys
-  const sectionsToRender: { profileKey: keyof UserProfile; docType: SupportedDocTypes; emptyText: string }[] = [
+  // Helper to safely access data properties by string key
+  const getSafeValue = (data: AnalyzedDocument, key: string): string => {
+      return (data as any)[key] as string;
+  };
+
+  /**
+   * Determines if a specific field should be highlighted as "Handwritten".
+   * Rule:
+   * - If Doc is NOT handwritten -> False
+   * - If Doc IS handwritten:
+   *    - For Passport: Only highlight 'registration' fields (Propiska), as main page is usually printed.
+   *    - For Others (Diploma, etc.): Highlight everything, as they are often fully handwritten.
+   */
+  const shouldHighlightField = (docType: SupportedDocTypes, fieldKey: string, isDocHandwritten: boolean): boolean => {
+      if (!isDocHandwritten) return false;
+
+      if (docType === 'passport') {
+          // Only warn about registration fields for passports
+          return fieldKey.startsWith('registration');
+      }
+
+      // For other docs, assume the whole doc is risky if flagged
+      return true;
+  };
+
+  const sectionsToRender: SectionConfig[] = [
     { profileKey: 'passport', docType: 'passport', emptyText: 'Паспорт не загружен' },
     { profileKey: 'diploma', docType: 'diploma', emptyText: 'Диплом не загружен' },
     { profileKey: 'qualification', docType: 'qualification', emptyText: 'Свидетельство НОК не загружено' },
@@ -70,11 +103,13 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
         {/* Dynamic Section Rendering Loop */}
         {sectionsToRender.map((sectionConfig) => {
             const profileItem = profile[sectionConfig.profileKey];
-            // @ts-ignore - complex union type mapping
+            
             const data = profileItem?.data;
-            // @ts-ignore
             const sourceFileId = profileItem?.sourceFileId;
             const schema = DOCUMENT_SCHEMAS[sectionConfig.docType];
+            
+            // Check for Handwritten Flag
+            const isDocHandwritten = data?.isHandwritten === true;
 
             // Divider between main documents
             const isNotFirst = sectionConfig.profileKey !== 'passport';
@@ -84,8 +119,6 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
                     {/* Visual separation for sections */}
                     {isNotFirst && <div className="absolute -top-6 left-0 right-0 border-t border-dashed border-gray-100"></div>}
 
-                    {/* Section Title (Optional, schema doesn't have a main title used here, we use Schema Sections) */}
-                    
                     {data ? (
                         <div className="space-y-8">
                             {schema.sections.map((schemaSection) => (
@@ -94,9 +127,10 @@ export const UnifiedProfileForm: React.FC<UnifiedProfileFormProps> = ({ profile,
                                         <Field 
                                             key={field.key}
                                             label={field.label}
-                                            value={data[field.key]}
+                                            value={getSafeValue(data, field.key)}
                                             fullWidth={field.fullWidth}
                                             onSave={(val) => handleFieldUpdate(data, sourceFileId, field.key, val)}
+                                            isHandwritten={shouldHighlightField(sectionConfig.docType, field.key, isDocHandwritten)}
                                         />
                                     ))}
                                 </FieldGroup>

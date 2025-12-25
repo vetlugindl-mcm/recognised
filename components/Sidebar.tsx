@@ -10,18 +10,18 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const MenuItem = ({ 
-  icon: Icon, 
-  label, 
-  active = false,
-  onClick,
-  isSubItem = false
-}: { 
+const MenuItem: React.FC<{ 
   icon: any, 
   label: string, 
   active?: boolean,
   onClick: () => void,
   isSubItem?: boolean
+}> = ({ 
+  icon: Icon, 
+  label, 
+  active = false,
+  onClick,
+  isSubItem = false
 }) => (
   <div 
     onClick={onClick}
@@ -38,18 +38,18 @@ const MenuItem = ({
   </div>
 );
 
-const MenuGroup = ({
-    label,
-    icon: Icon,
-    isOpen,
-    onToggle,
-    children
-}: {
+const MenuGroup: React.FC<{
     label: string,
     icon: any,
     isOpen: boolean,
     onToggle: () => void,
     children: React.ReactNode
+}> = ({
+    label,
+    icon: Icon,
+    isOpen,
+    onToggle,
+    children
 }) => {
     return (
         <div className="flex flex-col">

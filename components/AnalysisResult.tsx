@@ -60,6 +60,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }
 
   const Icon = schema.icon;
   const isDarkHeader = schema.isDarkHeader;
+  const isHandwritten = data.isHandwritten === true;
 
   const handleDataUpdate = (fieldKey: string, newValue: string) => {
     if (onUpdate) {
@@ -107,6 +108,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ item, onUpdate }
                             value={data[field.key]}
                             onSave={(val) => handleDataUpdate(field.key, val)}
                             fullWidth={field.fullWidth}
+                            isHandwritten={isHandwritten}
                         />
                     ))}
                 </FieldGroup>

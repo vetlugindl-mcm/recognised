@@ -73,8 +73,10 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 ### 4.2 Spatial Awareness
 *   **Rule:** The OCR instructions must explicitly direct the model to scan the **entire viewport**, prioritizing headers for critical IDs (like NOK Reg Numbers).
 
-### 4.3 Handwriting Detection
-*   **Rule:** The model must identify if key fields (Address, Name) are handwritten. This flags the `isHandwritten` boolean, which triggers UI warnings.
+### 4.3 Granular Handwriting Detection (Hybrid Strategy)
+*   **Global Rule:** The model sets `isHandwritten: true` if manual entry is detected.
+*   **Passport Specifics:** Passports are treated as hybrid documents. The `isHandwritten` flag triggers UI warnings **only for Registration (Propiska)** fields, as the main page is typically printed.
+*   **Other Docs:** For Diplomas/SNILS, the flag triggers warnings for the entire document section.
 
 ---
 
@@ -85,7 +87,7 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
     *   **Active/Focus:** `#000000` (Black). Do not use blue/indigo for focus states.
     *   **Surface:** White, Gray-50, or Transparent Blur.
     *   **Semantic Colors:** 
-        *   **Red (`text-red-500`):** Strictly for errors and **empty/unrecognized fields**.
+        *   **Red (`text-red-500`):** Strictly for errors, empty fields, and **unverified handwritten data**.
         *   **Green (`text-green-500`):** Strictly for verified success.
 *   **Patterns:** Use `bg-grid` (engineering graph paper style) for empty states, dropzones, and backgrounds to imply technical precision.
 
@@ -95,11 +97,14 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
     *   This provides a "heavy", premium feel with a quick snap and slow settle.
 *   **Micro-interactions:** Elements should lift (`-translate-y-1`), scale slightly (`scale-102`), or cast a shadow on hover.
 
-### 5.3 Validation UI
-*   **Empty Fields:** If a required field is empty/null:
-    *   Text must display "Не распознано" in **Red**.
-    *   Background may have a subtle red tint.
-    *   This ensures the user *cannot* miss a parsing error before generating documents.
+### 5.3 Field Actions (Material Design)
+*   **Placement:** Action icons (Edit, Copy) must be positioned in the **top-right** corner of the field header (`ml-auto`).
+*   **Visibility:** Actions are visible on group hover.
+*   **Styling:** Use `rounded-md` with `hover:bg-gray-100` for clear, tactile hit areas.
+
+### 5.4 User Verification Principle ("Human-in-the-Loop")
+*   **Rule:** If the AI flags a field as `isHandwritten` (Red Warning), but the user manually edits or confirms the field (onBlur/Enter), the warning state **must be removed**.
+*   **Logic:** A user-edited field is considered "Verified". It transitions from Red/Warning style to the standard Default style.
 
 ---
 
@@ -116,3 +121,27 @@ We utilize a **Feature-Based Modular Architecture** flattened for maintainabilit
 *   ❌ **Blue Accents:** Do not use `blue-500` for primary actions. Use Black.
 *   ❌ **Complex Scanners:** No "laser beam" animations. Use clean, kinetic states.
 *   ❌ **Direct `JSON.parse`:** Always use `cleanAndParseJson`.
+
+---
+
+## 8. Cloud Migration Protocol (Future Proofing)
+
+This project is architected for a seamless transition from Local-First (Stage 2) to Cloud-Native (Stage 3).
+
+### 8.1 The "Single Switch" Rule
+*   **Constraint:** 100% of data IO logic must remain encapsulated within `services/storageService.ts`.
+*   **Prohibited:** Never import `localStorage`, `indexedDB`, or `fetch` calls for data persistence inside UI components or Contexts.
+
+### 8.2 Migration Steps
+1.  **Replace Service Layer:** Rewrite `services/storageService.ts`.
+    *   *Metadata:* Replace `localStorage.setItem` with database calls (e.g., `supabase.from('documents').upsert()`).
+    *   *Binaries:* Replace `idb-keyval` with Object Storage calls (e.g., `supabase.storage.from('files').upload()`).
+2.  **Update Hooks:** Modify `hooks/useAnalysisData.ts` to handle asynchronous `save` operations.
+    *   Currently, saving is a side-effect of `useEffect`. In Cloud mode, `addAnalysisResult` should be an `async` function that awaits the DB response before updating local state (Optimistic UI is optional but recommended).
+3.  **Environment:** Add `VITE_API_URL` and `VITE_DB_KEY` to `.env`.
+
+### 8.3 Data Schema Mapping
+When creating the remote database, map the types as follows:
+*   `AnalysisItem[]` -> Table `documents` (JSONB column for `data`).
+*   `DocumentTemplate[]` -> Table `templates` + Storage Bucket `templates/{id}.docx`.
+*   `UploadedFile` -> Storage Bucket `user-uploads/{id}`.

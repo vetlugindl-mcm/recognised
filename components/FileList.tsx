@@ -12,7 +12,7 @@ interface FileListProps {
 }
 
 // Helper component for the animated icon transition
-const StatusIconWrapper = ({ active, children, className = "", type = "default" }: { active: boolean, children: React.ReactNode, className?: string, type?: "spin" | "default" }) => (
+const StatusIconWrapper: React.FC<{ active: boolean, children: React.ReactNode, className?: string, type?: "spin" | "default" }> = ({ active, children, className = "", type = "default" }) => (
     <div className={`
         absolute inset-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
         ${active ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}

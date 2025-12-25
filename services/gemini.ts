@@ -12,7 +12,6 @@ const getBase64 = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove the Data URL prefix (e.g., "data:image/jpeg;base64,")
       const base64Data = result.split(',')[1];
       resolve(base64Data);
     };
@@ -20,48 +19,71 @@ const getBase64 = (file: File): Promise<string> => {
   });
 };
 
+/**
+ * Retry utility for AI calls.
+ * Retries up to 'retries' times with exponential backoff.
+ */
+async function retryWithBackoff<T>(
+    operation: () => Promise<T>, 
+    retries: number = 3, 
+    delay: number = 1000
+): Promise<T> {
+    try {
+        return await operation();
+    } catch (error: any) {
+        if (retries <= 0) throw error;
+        
+        // Detect retryable errors
+        const msg = String(error?.message || '').toLowerCase();
+        const isRetryable = msg.includes('429') || msg.includes('503') || msg.includes('overloaded');
+
+        if (!isRetryable) throw error;
+
+        console.warn(`Gemini API busy. Retrying in ${delay}ms... (${retries} left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        return retryWithBackoff(operation, retries - 1, delay * 2);
+    }
+}
+
 export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
   const apiKey = process.env.API_KEY;
   
-  // Strategy: Mock Mode
   if (!apiKey) {
     console.warn("No API_KEY found. Using MockService.");
     return MockService.getMockData(file.name);
   }
 
-  // Strategy: Live Mode
   try {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = await getBase64(file);
     const systemPrompt = getSystemPrompt();
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: file.type,
+    // Wrap the core API call in the retry logic
+    const response = await retryWithBackoff(async () => {
+        return await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                {
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: file.type,
+                    },
+                },
+                {
+                    text: systemPrompt,
+                },
+                ],
             },
-          },
-          {
-            text: systemPrompt,
-          },
-        ],
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: GEMINI_RESPONSE_SCHEMA, // Native Structured Output
-      }
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: GEMINI_RESPONSE_SCHEMA,
+            }
+        });
     });
 
-    // With responseSchema, response.text is guaranteed to be a valid JSON string
-    // adhering to our schema structure.
     const textResponse = response.text || "{}";
-    
-    // We still use cleanAndParseJson because it contains our Zod validation layer.
-    // This acts as a double-check: GenAI ensures structure, Zod ensures runtime types match our Typescript definitions.
     return cleanAndParseJson(textResponse);
 
   } catch (error: unknown) {
@@ -78,7 +100,6 @@ export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
         throw error;
     }
 
-    // Map errors to AppError
     if (msg.includes('400') || msg.includes('invalid argument')) {
         throw new AppError('VALIDATION_ERROR', "Некорректный запрос. Проверьте формат файла.", error);
     }
@@ -89,7 +110,7 @@ export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
         throw new AppError('NETWORK_ERROR', "Модель не найдена.", error);
     }
     if (msg.includes('429')) {
-        throw new AppError('NETWORK_ERROR', "Превышен лимит запросов.", error);
+        throw new AppError('NETWORK_ERROR', "Сервер перегружен. Пожалуйста, подождите минуту.", error);
     }
     if (msg.includes('500')) {
         throw new AppError('NETWORK_ERROR', "Ошибка сервиса Gemini.", error);
@@ -98,7 +119,6 @@ export const analyzeFile = async (file: File): Promise<AnalyzedDocument> => {
         throw new AppError('AI_SAFETY_BLOCK', "Документ заблокирован фильтром безопасности AI.", error);
     }
 
-    // Fallback
     throw new AppError('UNKNOWN_ERROR', "Не удалось обработать документ.", error);
   }
 };

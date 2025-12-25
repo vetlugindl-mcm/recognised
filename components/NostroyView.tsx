@@ -49,7 +49,7 @@ const ScoreGauge = ({ score }: { score: number }) => {
   );
 };
 
-const CheckItem = ({ check }: { check: ValidationRuleResult }) => {
+const CheckItem: React.FC<{ check: ValidationRuleResult }> = ({ check }) => {
     let icon = <CheckCircleIcon className="w-5 h-5 text-green-500" />;
     let bgClass = "bg-green-50 border-green-100";
     

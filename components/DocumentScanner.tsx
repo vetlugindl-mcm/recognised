@@ -12,8 +12,9 @@ import { AppError } from '../utils/errors';
 import { useAppContext } from '../context/AppContext';
 import { useFileHydration } from '../hooks/useFileHydration';
 import { ErrorBoundary } from './ErrorBoundary';
+import { sortAnalysisResults } from '../utils/documentUtils';
 
-const BtnIconWrapper = ({ active, children }: { active: boolean, children: React.ReactNode }) => (
+const BtnIconWrapper: React.FC<{ active: boolean, children: React.ReactNode }> = ({ active, children }) => (
     <div className={`
         absolute inset-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
         ${active ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}
@@ -23,7 +24,14 @@ const BtnIconWrapper = ({ active, children }: { active: boolean, children: React
 );
 
 export const DocumentScanner: React.FC = () => {
-  const { analysisResults, setAnalysisResults, updateAnalysisResult, removeAnalysisResult } = useAppContext();
+  const { 
+    analysisResults, 
+    setAnalysisResults, 
+    updateAnalysisResult, 
+    removeAnalysisResult,
+    notify 
+  } = useAppContext();
+  
   const { files, setFiles, isHydrating } = useFileHydration(analysisResults);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
 
@@ -40,13 +48,17 @@ export const DocumentScanner: React.FC = () => {
         // 1. Save to IndexedDB immediately
         await StorageService.saveFile(id, file);
 
-        // 2. Create UI Object (No more manual Preview URL creation here)
+        // 2. Create UI Object
         newUploadedFiles.push({ file, id });
     }
 
     setFiles((prev) => [...prev, ...newUploadedFiles]);
     setAnalysisState('idle'); 
-  }, [setFiles]);
+    
+    // Notify user
+    notify('info', 'Файлы добавлены', `Загружено документов: ${newFiles.length}. Нажмите "Распознать".`);
+
+  }, [setFiles, notify]);
 
   const handleRemoveFile = useCallback(async (id: string) => {
     // 1. Update UI State (Files)
@@ -72,60 +84,64 @@ export const DocumentScanner: React.FC = () => {
     const unprocessedFiles = files.filter(f => !analysisResults.some(r => r.fileId === f.id));
 
     if (unprocessedFiles.length === 0) {
-      alert(files.length === 0 ? "Пожалуйста, загрузите файлы." : "Все загруженные файлы уже обработаны.");
+      if (files.length === 0) {
+        notify('warning', 'Нет файлов', 'Пожалуйста, загрузите документы перед анализом.');
+      } else {
+        notify('info', 'Готово', 'Все загруженные файлы уже обработаны.');
+      }
       return;
     }
 
     setAnalysisState('analyzing');
+    notify('info', 'Начинаем анализ', `В очереди на обработку: ${unprocessedFiles.length} док.`);
     
-    try {
-      const promises = unprocessedFiles.map(async (fileObj): Promise<AnalysisItem> => {
+    // SEQUENTIAL PROCESSING LOOP
+    for (const fileObj of unprocessedFiles) {
         try {
-          const analyzedData = await analyzeFile(fileObj.file);
-          
-          return {
-            fileId: fileObj.id,
-            fileName: fileObj.file.name,
-            data: analyzedData
-          };
+            // 1. Analyze
+            const analyzedData = await analyzeFile(fileObj.file);
+            
+            const newItem: AnalysisItem = {
+                fileId: fileObj.id,
+                fileName: fileObj.file.name,
+                data: analyzedData
+            };
+
+            // 2. Update Context IMMEDIATELY (User sees result appear)
+            setAnalysisResults(prevResults => {
+                const combined = [...prevResults, newItem];
+                return sortAnalysisResults(combined);
+            });
+
+            // 3. Artificial Delay (Rate Limiting Safety)
+            await new Promise(resolve => setTimeout(resolve, 800));
 
         } catch (error: unknown) {
-          console.error(`Error analyzing ${fileObj.file.name}:`, error);
-          const errorMessage = error instanceof AppError 
-            ? error.publicMessage 
-            : "Не удалось обработать файл";
+            console.error(`Error analyzing ${fileObj.file.name}:`, error);
+            const errorMessage = error instanceof AppError 
+                ? error.publicMessage 
+                : "Не удалось обработать файл";
 
-          return {
-            fileId: fileObj.id,
-            fileName: fileObj.file.name,
-            data: null,
-            error: errorMessage
-          };
-        }
-      });
-
-      const newResults = await Promise.all(promises);
-      
-      // Update Context with sorting logic
-      setAnalysisResults(prevResults => {
-          const combined = [...prevResults, ...newResults];
-          return combined.sort((a, b) => {
-            const getPriority = (item: AnalysisItem) => {
-              if (item.data?.type === 'passport') return 0;
-              if (item.data?.type === 'qualification') return 1;
-              if (item.data?.type === 'diploma') return 2;
-              return 3;
+            const errorItem: AnalysisItem = {
+                fileId: fileObj.id,
+                fileName: fileObj.file.name,
+                data: null,
+                error: errorMessage
             };
-            return getPriority(a) - getPriority(b);
-          });
-      });
 
-      setAnalysisState('complete');
+            // Add error result so the UI stops spinning for this file
+            setAnalysisResults(prevResults => {
+                const combined = [...prevResults, errorItem];
+                return sortAnalysisResults(combined);
+            });
 
-    } catch (error) {
-      console.error("Global analysis error:", error);
-      setAnalysisState('error');
+            // Show error toast
+            notify('error', 'Ошибка анализа', `${fileObj.file.name}: ${errorMessage}`);
+        }
     }
+
+    setAnalysisState('complete');
+    notify('success', 'Обработка завершена', 'Все документы проверены AI.');
   };
 
   const handleReset = async () => {
@@ -136,6 +152,7 @@ export const DocumentScanner: React.FC = () => {
     setFiles([]);
     setAnalysisState('idle');
     setAnalysisResults([]);
+    notify('info', 'Очистка', 'Список файлов и данные сброшены.');
   };
 
   const unprocessedCount = files.length - analysisResults.length;
@@ -221,7 +238,9 @@ export const DocumentScanner: React.FC = () => {
                                         </div>
                                         
                                         <span className="relative">
-                                            {isAnalyzing ? "Обработка..." : isComplete ? "Готово" : "Распознать"}
+                                            {isAnalyzing 
+                                                ? `Обработка...` 
+                                                : isComplete ? "Готово" : "Распознать"}
                                         </span>
                                     </div>
                                 </button>
@@ -241,7 +260,7 @@ export const DocumentScanner: React.FC = () => {
                     <div className="h-px bg-gray-200 flex-1"></div>
                 </div>
 
-                {isAnalyzing || isHydrating ? (
+                {isAnalyzing && !hasResults ? (
                     <AnalysisSkeleton />
                 ) : (
                     <UnifiedProfileForm profile={userProfile} onUpdate={handleDataUpdate} />
