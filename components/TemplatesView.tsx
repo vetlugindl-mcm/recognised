@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { Dropzone } from './Dropzone';
-import { DocumentTemplate } from '../types';
-import { DocGeneratorService } from '../services/docGenerator';
+import { DocumentTemplate, TemplateCategory } from '../types';
 import { StorageService } from '../services/storageService';
 import { useAppContext } from '../context/AppContext';
-import { useUserProfile } from '../hooks/useUserProfile';
-import { VARIABLES_DATA } from '../configs/templateVariables';
 import { 
   DocumentIcon, 
-  TagIcon, 
   TrashIcon, 
   Square2StackIcon,
   InformationCircleIcon,
@@ -16,9 +12,11 @@ import {
   ClipboardIcon,
   CheckIcon,
   MagnifyingGlassIcon,
-  RocketLaunchIcon,
-  LoaderIcon
+  TagIcon,
+  BuildingOfficeIcon,
+  CitySkylineIcon
 } from './icons';
+import { VARIABLES_DATA } from '../configs/templateVariables';
 
 const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
@@ -62,7 +60,6 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                </button>
            </div>
            
-           {/* Search Bar */}
            <div className="relative">
                 <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
@@ -75,7 +72,6 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
            </div>
         </div>
 
-        {/* Modal Body - Scrollable */}
         <div className="overflow-y-auto p-6 space-y-8 custom-scrollbar">
           {filteredGroups.length > 0 ? (
               filteredGroups.map((group, idx) => (
@@ -120,65 +116,115 @@ const VariablesGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   );
 };
 
+const TemplateSlot = ({ 
+    category, 
+    template, 
+    onAdd, 
+    onRemove 
+}: { 
+    category: TemplateCategory, 
+    template?: DocumentTemplate, 
+    onAdd: (files: File[], category: TemplateCategory) => void,
+    onRemove: (id: string) => void 
+}) => {
+    const isNostroy = category === 'nostroy';
+    const Icon = isNostroy ? BuildingOfficeIcon : CitySkylineIcon;
+    const title = isNostroy ? "Шаблон НОСТРОЙ" : "Шаблон НОПРИЗ";
+    const desc = isNostroy ? "Заявление для строителей" : "Заявление для проектировщиков";
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-lg border ${isNostroy ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-purple-50 border-purple-100 text-purple-600'}`}>
+                    <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                    <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                </div>
+            </div>
+
+            <div className="flex-1">
+                {template ? (
+                    <div className="glass-panel rounded-2xl p-5 hover:shadow-lg transition-all duration-300 group flex flex-col h-full border-gray-200 bg-white">
+                         <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gray-100 text-gray-900 rounded-lg flex items-center justify-center border border-gray-200">
+                                    <DocumentIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-900 line-clamp-1 break-all" title={template.name}>
+                                        {template.name}
+                                    </h3>
+                                    <p className="text-xs text-gray-400">
+                                        {(template.size / 1024).toFixed(1)} KB • {template.uploadDate.toLocaleDateString()}
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => onRemove(template.id)} 
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="mt-auto pt-4 flex items-center gap-2 text-xs text-green-600 font-medium">
+                            <CheckIcon className="w-4 h-4" />
+                            <span>Шаблон активен</span>
+                        </div>
+                    </div>
+                ) : (
+                    <Dropzone 
+                        onFilesAdded={(files) => onAdd(files, category)} 
+                        title="Загрузить .docx"
+                        subtitle="Перетащите файл шаблона"
+                        accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const TemplatesView: React.FC = () => {
-  const { templates, setTemplates, analysisResults } = useAppContext();
-  const userProfile = useUserProfile(analysisResults);
-  
+  const { templates, setTemplates } = useAppContext();
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
-  const handleFilesAdded = async (files: File[]) => {
-    const newTemplates: DocumentTemplate[] = [];
+  const handleFilesAdded = async (files: File[], category: TemplateCategory) => {
+    if (files.length === 0) return;
+    const file = files[0]; // Take first file only
 
-    for (const file of files) {
-        const id = Math.random().toString(36).substring(7);
-        
-        // Save to IndexedDB
-        await StorageService.saveFile(id, file);
-
-        // Mock variable detection
-        const mockVars = [];
-        if (file.name.toLowerCase().includes('dogovor') || file.name.toLowerCase().includes('contract')) {
-            mockVars.push('passport_last_name', 'passport_series_number');
-        } else {
-            mockVars.push('passport_last_name', 'snils');
-        }
-
-        newTemplates.push({
-            id,
-            file,
-            name: file.name,
-            uploadDate: new Date(),
-            variables: mockVars,
-            size: file.size
-        });
+    // Remove existing template for this category if exists
+    const existing = templates.find(t => t.category === category);
+    if (existing) {
+        await handleRemove(existing.id);
     }
 
-    setTemplates(prev => [...prev, ...newTemplates]);
+    const id = crypto.randomUUID();
+    
+    // Save to IndexedDB
+    await StorageService.saveFile(id, file);
+
+    const newTemplate: DocumentTemplate = {
+        id,
+        file,
+        name: file.name,
+        uploadDate: new Date(),
+        variables: [], // Can implement scanning later
+        size: file.size,
+        category
+    };
+
+    setTemplates(prev => [...prev.filter(t => t.category !== category), newTemplate]);
   };
 
   const handleRemove = async (id: string) => {
-    // Remove from State
     setTemplates(prev => prev.filter(t => t.id !== id));
-    // Remove from IndexedDB
     await StorageService.deleteFile(id);
   };
 
-  const handleGenerate = async (template: DocumentTemplate) => {
-    setGeneratingId(template.id);
-    try {
-        await DocGeneratorService.generateDocument(template.file, userProfile);
-    } catch (error) {
-        if (error instanceof Error) {
-            alert(error.message);
-        } else {
-            console.error("Generation failed:", error);
-            alert("Произошла неизвестная ошибка при генерации документа.");
-        }
-    } finally {
-        setGeneratingId(null);
-    }
-  };
+  const nostroyTemplate = templates.find(t => t.category === 'nostroy');
+  const noprizTemplate = templates.find(t => t.category === 'nopriz');
 
   return (
     <>
@@ -190,8 +236,8 @@ export const TemplatesView: React.FC = () => {
                   <Square2StackIcon className="w-6 h-6 text-gray-900" />
               </div>
               <div>
-                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Шаблоны документов</h1>
-                  <p className="text-sm text-gray-500">Загрузите .docx файлы для генерации заявлений</p>
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Реестр шаблонов</h1>
+                  <p className="text-sm text-gray-500">Управление шаблонами заявлений для генерации</p>
               </div>
           </div>
           
@@ -204,66 +250,32 @@ export const TemplatesView: React.FC = () => {
           </button>
         </div>
 
-        {/* Upload Area */}
-        <section className="animate-enter">
-          <Dropzone 
-              onFilesAdded={handleFilesAdded} 
-              title="Загрузить шаблон"
-              subtitle="Поддерживаются .DOCX с переменными {var}"
-              accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
-          />
+        {/* Template Slots */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-enter">
+            <TemplateSlot 
+                category="nostroy" 
+                template={nostroyTemplate} 
+                onAdd={handleFilesAdded} 
+                onRemove={handleRemove} 
+            />
+            <TemplateSlot 
+                category="nopriz" 
+                template={noprizTemplate} 
+                onAdd={handleFilesAdded} 
+                onRemove={handleRemove} 
+            />
         </section>
 
-        {/* Templates Grid */}
-        {templates.length > 0 && (
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 animate-enter" style={{ animationDelay: '100ms' }}>
-              {templates.map((template) => (
-                  <div key={template.id} className="glass-panel rounded-2xl p-5 hover:shadow-lg transition-all duration-300 group flex flex-col">
-                      <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                              {/* Changed to Grayscale/Black for Premium Utility */}
-                              <div className="w-10 h-10 bg-gray-100 text-gray-900 rounded-lg flex items-center justify-center border border-gray-200">
-                                  <DocumentIcon className="w-5 h-5" />
-                              </div>
-                              <div>
-                                  <h3 className="text-sm font-bold text-gray-900 line-clamp-1 break-all" title={template.name}>
-                                      {template.name}
-                                  </h3>
-                                  <p className="text-xs text-gray-400">
-                                      {(template.size / 1024).toFixed(1)} KB • {template.uploadDate.toLocaleDateString()}
-                                  </p>
-                              </div>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                              <button onClick={() => handleRemove(template.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                  <TrashIcon className="w-4 h-4" />
-                              </button>
-                          </div>
-                      </div>
-
-                      <div className="mt-auto space-y-4">
-                          <button 
-                            onClick={() => handleGenerate(template)}
-                            disabled={generatingId === template.id}
-                            className="w-full py-2.5 bg-black text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                          >
-                             {generatingId === template.id ? (
-                                <>
-                                  <LoaderIcon className="w-4 h-4 animate-spin" />
-                                  <span>Генерация...</span>
-                                </>
-                             ) : (
-                                <>
-                                  <RocketLaunchIcon className="w-4 h-4" />
-                                  <span>Заполнить заявление</span>
-                                </>
-                             )}
-                          </button>
-                      </div>
-                  </div>
-              ))}
-          </section>
-        )}
+        <section className="bg-blue-50 border border-blue-100 rounded-xl p-5 flex gap-4 animate-enter" style={{ animationDelay: '100ms' }}>
+            <InformationCircleIcon className="w-6 h-6 text-blue-500 shrink-0" />
+            <div>
+                <h4 className="text-sm font-bold text-blue-900 mb-1">Как это работает?</h4>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                    Загрузите "болванки" .docx файлов для каждой категории. Система будет автоматически использовать их 
+                    в разделах НОСТРОЙ и НОПРИЗ для заполнения данными, которые были извлечены из паспорта и диплома.
+                </p>
+            </div>
+        </section>
       </div>
 
       <VariablesGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />

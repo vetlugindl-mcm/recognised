@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ComplianceReport, ValidationRuleResult } from '../types';
 import { calculateCompliance } from '../utils/businessRules';
-import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon, BuildingOfficeIcon, SparklesIcon } from './icons';
+import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon, BuildingOfficeIcon, SparklesIcon, ArrowDownTrayIcon, LoaderIcon } from './icons';
 import { useAppContext } from '../context/AppContext';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { DocGeneratorService } from '../services/docGenerator';
+import { StorageService } from '../services/storageService';
+import { useNotification } from '../context/NotificationContext';
 
 const ScoreGauge = ({ score }: { score: number }) => {
-  // SVG Circle calculations
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
@@ -17,7 +19,6 @@ const ScoreGauge = ({ score }: { score: number }) => {
 
   return (
     <div className="relative w-32 h-32 flex items-center justify-center">
-       {/* Background Circle */}
        <svg className="w-full h-full transform -rotate-90">
          <circle
            cx="64"
@@ -77,15 +78,69 @@ interface NostroyViewProps {
 }
 
 export const NostroyView: React.FC<NostroyViewProps> = ({ mode = 'nostroy' }) => {
-  const { analysisResults } = useAppContext();
+  const { analysisResults, templates } = useAppContext();
   const userProfile = useUserProfile(analysisResults);
+  const { notify } = useNotification();
   
   const report: ComplianceReport = useMemo(() => calculateCompliance(userProfile), [userProfile]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [actionType, setActionType] = useState<'doc' | 'zip' | null>(null);
 
+  const activeTemplate = templates.find(t => t.category === mode);
   const title = mode === 'nopriz' ? 'Внесение в НОПРИЗ' : 'Внесение в НОСТРОЙ';
   const subtitle = mode === 'nopriz' 
     ? 'Проверка документов для Национального объединения изыскателей и проектировщиков'
     : 'Автоматическая проверка документов на соответствие требованиям реестра';
+
+  const canGenerate = report.status !== 'error' && report.score > 0 && !!activeTemplate;
+  const missingTemplate = !activeTemplate;
+
+  const handleGenerateDoc = async () => {
+    if (!activeTemplate) return;
+    setIsProcessing(true);
+    setActionType('doc');
+    try {
+        const blob = await DocGeneratorService.generateDocumentBlob(activeTemplate.file, userProfile);
+        const lastName = userProfile.passport.data?.lastName || 'Candidate';
+        const fileName = `Заявление_${lastName}_${mode.toUpperCase()}.docx`;
+        DocGeneratorService.saveBlob(blob, fileName);
+        notify('success', 'Файл создан', fileName);
+    } catch (e) {
+        notify('error', 'Ошибка', 'Не удалось создать документ');
+    } finally {
+        setIsProcessing(false);
+        setActionType(null);
+    }
+  };
+
+  const handleGeneratePackage = async () => {
+    if (!activeTemplate) return;
+    setIsProcessing(true);
+    setActionType('zip');
+    try {
+        // Hydrate source files from IDB
+        const sourceFiles: File[] = [];
+        const fileIds = analysisResults.map(r => r.fileId);
+        
+        for (const id of fileIds) {
+            const file = await StorageService.getFile(id);
+            if (file) sourceFiles.push(file);
+        }
+
+        if (sourceFiles.length === 0) {
+            throw new Error("Исходные файлы не найдены в хранилище");
+        }
+
+        await DocGeneratorService.generatePackage(activeTemplate.file, userProfile, sourceFiles, mode);
+        notify('success', 'Архив создан', 'Скачивание началось автоматически');
+    } catch (e) {
+        console.error(e);
+        notify('error', 'Ошибка архивации', 'Не удалось создать ZIP архив');
+    } finally {
+        setIsProcessing(false);
+        setActionType(null);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto pb-10 flex flex-col gap-8">
@@ -118,36 +173,50 @@ export const NostroyView: React.FC<NostroyViewProps> = ({ mode = 'nostroy' }) =>
                         {report.summary}
                     </p>
 
-                    <button 
-                        disabled={report.status === 'error' || report.score === 0}
-                        className={`
-                            w-full py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2
-                            ${report.status === 'error' || report.score === 0 
-                                ? 'bg-gray-300 cursor-not-allowed shadow-none' 
-                                : 'bg-black hover:bg-gray-800 hover:-translate-y-0.5 shadow-black/20'
-                            }
-                        `}
-                    >
-                        <SparklesIcon className="w-4 h-4" />
-                        <span>Сформировать заявку</span>
-                    </button>
+                    <div className="w-full space-y-3">
+                        <button 
+                            onClick={handleGeneratePackage}
+                            disabled={!canGenerate || isProcessing}
+                            className={`
+                                w-full py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2
+                                ${!canGenerate || isProcessing
+                                    ? 'bg-gray-300 cursor-not-allowed shadow-none' 
+                                    : 'bg-black hover:bg-gray-800 hover:-translate-y-0.5 shadow-black/20'
+                                }
+                            `}
+                        >
+                            {isProcessing && actionType === 'zip' ? (
+                                <LoaderIcon className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <SparklesIcon className="w-4 h-4" />
+                            )}
+                            <span>Сформировать пакет (ZIP)</span>
+                        </button>
+
+                        <button 
+                            onClick={handleGenerateDoc}
+                            disabled={!canGenerate || isProcessing}
+                            className={`
+                                w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-2
+                                ${!canGenerate || isProcessing
+                                    ? 'border-gray-100 text-gray-300 cursor-not-allowed'
+                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                                }
+                            `}
+                        >
+                             {isProcessing && actionType === 'doc' ? (
+                                <LoaderIcon className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <ArrowDownTrayIcon className="w-4 h-4" />
+                            )}
+                            <span>Только заявление</span>
+                        </button>
+                    </div>
                     
-                    {report.score > 0 && (
-                        <div className="mt-6 pt-6 border-t border-gray-100 w-full text-left">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-3">Детализация</span>
-                            <div className="space-y-2 text-xs text-gray-600">
-                                <div className="flex justify-between">
-                                    <span>Документы</span>
-                                    <span className="font-mono font-bold text-gray-900">
-                                        {userProfile.passport.data ? 1 : 0} + {userProfile.diploma.data ? 1 : 0} + {userProfile.qualification.data ? 1 : 0} / 3
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Стаж (расчетный)</span>
-                                    <span className="font-mono font-bold text-gray-900">N/A</span>
-                                </div>
-                            </div>
-                        </div>
+                    {missingTemplate && (
+                         <div className="mt-4 px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600 w-full text-center">
+                             Шаблон {mode.toUpperCase()} не загружен
+                         </div>
                     )}
                 </div>
             </div>

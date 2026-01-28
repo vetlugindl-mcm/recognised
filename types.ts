@@ -99,6 +99,8 @@ export interface AnalysisItem {
   error?: string;
 }
 
+export type TemplateCategory = 'nostroy' | 'nopriz';
+
 export interface DocumentTemplate {
   id: string;
   file: File;
@@ -106,6 +108,7 @@ export interface DocumentTemplate {
   uploadDate: Date;
   variables: string[];
   size: number;
+  category: TemplateCategory;
 }
 
 export interface UserProfile {
